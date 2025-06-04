@@ -4,5 +4,5 @@ Declare PtrSafe Function doubleValueWrapper Lib "F:\MyLib.dll" (ByVal x As Long)
 Sub Test()
     Dim result As Long
     result = doubleValueWrapper(10)
-    MsgBox "Result: " & result  ' 20 Ç∆ï\é¶Ç≥ÇÍÇ‹Ç∑ÇÀÅB
+    MsgBox "Result: " & result  ' 20 „Å®Ë°®Á§∫„Åï„Çå„Åæ„Åô„Å≠„ÄÇ
 End Sub
