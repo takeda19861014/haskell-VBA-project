@@ -1,0 +1,7 @@
+*.dll
+*.o
+*.hi
+*.a
+.stack-work/
+.vscode/
+.vs/
