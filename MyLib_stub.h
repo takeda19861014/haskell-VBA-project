@@ -2,7 +2,7 @@
 #if defined(__cplusplus)
 extern "C" {
 #endif
-extern HsInt32 doubleValue(HsInt32 a1);
+extern HsInt32 getDictValue(HsInt32 a1);
 #if defined(__cplusplus)
 }
 #endif

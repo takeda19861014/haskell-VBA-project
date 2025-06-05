@@ -1,8 +1,17 @@
 {-# LANGUAGE ForeignFunctionInterface #-}
-module MyLib where
+module MyDict where
+
 import Foreign.C.Types
+import qualified Data.Map.Strict as Map
 
-foreign export ccall doubleValue :: CInt -> CInt
+myDict :: Map.Map Int Int
+myDict = Map.fromList [
+    (32, 0),
+    (33, 1),
+    (38, 25),
+    (65293, 1)
+  ]
 
-doubleValue :: CInt -> CInt
-doubleValue x = x * 2
+foreign export ccall getDictValue :: CInt -> IO CInt
+getDictValue :: CInt -> IO CInt
+getDictValue key = return $ maybe (-1) fromIntegral (Map.lookup (fromIntegral key) myDict)
