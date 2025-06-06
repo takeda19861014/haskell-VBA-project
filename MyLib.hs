@@ -1,10 +1,11 @@
-{-# LANGUAGE ForeignFunctionInterface #-}
-module MyDict where
+ï»¿{-# LANGUAGE ForeignFunctionInterface #-}
+module MyLib where
 
 import Foreign.C.Types
 import qualified Data.Map.Strict as Map
+import Data.Char (isSpace)
 
--- Map‚Ì’l‚ðEither String IntŒ^‚É‚·‚é
+-- Mapã®å€¤ã‚’Either String Intåž‹ã«ã™ã‚‹
 myDict :: Map.Map Int (Either String Int)
 myDict = Map.fromList [
  (32, Right 0),
@@ -271,13 +272,21 @@ myDict = Map.fromList [
  (65293, Right 1)
   ]
 
--- CŒ¾Œê‚©‚çŒÄ‚Ño‚¹‚é‚æ‚¤‚ÉƒGƒNƒXƒ|[ƒg
+-- Cè¨€èªžã‹ã‚‰å‘¼ã³å‡ºã›ã‚‹ã‚ˆã†ã«ã‚¨ã‚¯ã‚¹ãƒãƒ¼ãƒˆ
 foreign export ccall getDictValue :: CInt -> IO CInt
 
 getDictValue :: CInt -> IO CInt
 getDictValue key =
   case Map.lookup (fromIntegral key) myDict of
-    Nothing        -> return (-1)  -- ƒL[‚ª‘¶Ý‚µ‚È‚¢
-    Just (Left _)  -> return (-2)  -- “Á•Ê‚ÈLeft’li¡‚Í–¢Žg—pj
-    Just (Right v) -> return (fromIntegral v)  -- ’Êí‚Ì’l
+    Nothing        -> return (-1)  -- ã‚­ãƒ¼ãŒå­˜åœ¨ã—ãªã„
+    Just (Left _)  -> return (-2)  -- ç‰¹åˆ¥ãªLeftå€¤ï¼ˆä»Šã¯æœªä½¿ç”¨ï¼‰
+    Just (Right v) -> return (fromIntegral v)  -- é€šå¸¸ã®å€¤
 
+removeSpaces :: String -> String
+removeSpaces = filter (not . isSpace)
+
+toUnicodeList :: String -> [Int]
+toUnicodeList = map fromEnum
+
+realLenBase :: String -> [Int]
+realLenBase str = toUnicodeList (removeSpaces str)
