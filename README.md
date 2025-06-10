@@ -9,7 +9,7 @@ VBAからHaskellで書かれたDLLを呼び出すプロジェクトです。
 - wrapper.c ... C言語のDLLラッパー
 - Module1.bas ... VBAモジュール
 - MyLib.cabal ... Haskellビルド設定
-
+- main.hs ... テスト実行コード
 ## 使い方
 1. HaskellでDLLをビルド
 2. VBAからDLLを呼び出して動作確認
