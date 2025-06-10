@@ -1,2 +1,8 @@
+LIBRARY MyLib
 EXPORTS
-  getDictValueWrapper
+    real_len_wrapper
+    real_len_wrapper_wstr  
+    test_func
+    initialize_haskell
+    health_check
+    real_len

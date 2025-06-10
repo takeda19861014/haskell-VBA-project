@@ -1,9 +1,20 @@
-﻿{-# LANGUAGE ForeignFunctionInterface #-}
+﻿-- MyLib.hs (部分)
+{-# LANGUAGE ForeignFunctionInterface #-}
 module MyLib where
 
+import Foreign
 import Foreign.C.Types
+import Foreign.C.String (CWString, peekCWStringLen) -- ★ peekCWStringLen をインポート
 import qualified Data.Map.Strict as Map
-import Data.Char (isSpace)
+import Data.Char (isSpace, ord)
+import Control.Exception (catch, SomeException)
+import System.IO.Unsafe (unsafePerformIO)
+import Foreign.C.String (CString, withCString)
+
+-- Windowsのデバッグ出力API
+foreign import ccall "OutputDebugStringA" outputDebugString :: CString -> IO ()
+debugMsg :: String -> IO ()
+debugMsg msg = withCString msg outputDebugString
 
 -- Mapの値をEither String Int型にする
 myDict :: Map.Map Int (Either String Int)
@@ -272,21 +283,38 @@ myDict = Map.fromList [
  (65293, Right 1)
   ]
 
--- C言語から呼び出せるようにエクスポート
-foreign export ccall getDictValue :: CInt -> IO CInt
+-- 文字列のn番目（1始まり）のUnicode値を返す（空白は除去、長さを明示的に受け取る）
+-- ★ len_c を引数に追加
+real_len :: CWString -> CInt -> CInt -> CInt -> IO CInt
+real_len cws len_c elem1 elem2 =
+    (do
+        debugMsg "real_len: 関数が呼ばれました\n"
+        if cws == nullPtr
+            then do
+                debugMsg "real_len: NULL pointer received\n"
+                return (-1)
+            else do
+                -- ★ peekCWStringLen を使用し、ポインタと長さを指定
+                str <- peekCWStringLen (castPtr cws, fromIntegral len_c)
+                debugMsg $ "real_len: 入力文字列=" ++ str ++ ", 長さ=" ++ show (length str) ++ "\n" -- ★ 長さもログ出力
 
-getDictValue :: CInt -> IO CInt
-getDictValue key =
-  case Map.lookup (fromIntegral key) myDict of
-    Nothing        -> return (-1)  -- キーが存在しない
-    Just (Left _)  -> return (-2)  -- 特別なLeft値（今は未使用）
-    Just (Right v) -> return (fromIntegral v)  -- 通常の値
+                let strNoSpaces = filter (not . isSpace) str
+                    idx = fromIntegral elem2 - 1  -- elem2は1始まり
 
-removeSpaces :: String -> String
-removeSpaces = filter (not . isSpace)
+                if null strNoSpaces || idx < 0 || idx >= Prelude.length strNoSpaces
+                    then do
+                        debugMsg "real_len: 範囲外または空文字列\n"
+                        return (-1)
+                    else do
+                        let ch = strNoSpaces !! idx
+                        let unicodeVal = ord ch
+                        debugMsg $ "real_len: 抽出文字=" ++ [ch] ++ ", Unicode値=" ++ show unicodeVal ++ "\n"
+                        return (fromIntegral unicodeVal)
+    ) `catch` (\e -> do
+        debugMsg $ "real_len: 例外が発生しました: " ++ show (e :: SomeException) ++ "\n"
+        return (-998)
+    )
 
-toUnicodeList :: String -> [Int]
-toUnicodeList = map fromEnum
-
-realLenBase :: String -> [Int]
-realLenBase str = toUnicodeList (removeSpaces str)
+-- C言語から呼び出せるようにエクスポート (型定義も変更)
+-- ★ len_c (CInt) を型シグネチャに追加
+foreign export ccall real_len :: CWString -> CInt -> CInt -> CInt -> IO CInt

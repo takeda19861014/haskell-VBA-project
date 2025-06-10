@@ -1,27 +1,122 @@
+#include <windows.h>
+#include <oleauto.h>
 #include <HsFFI.h>
+#include <wchar.h>
+#include <stdio.h>
+
+#pragma comment(lib, "oleaut32")
+#pragma comment(lib, "ole32")
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-    // Haskell‚Å foreign export ccall ‚µ‚½ŠÖ”‚ğéŒ¾
-    extern HsInt32 getDictValue(HsInt32 key);
+    extern HsInt32 real_len(const wchar_t* s, HsInt32 elem1, HsInt32 elem2);
 
-    // VBA‚â‘¼Œ¾Œê‚©‚çŒÄ‚Ño‚·‘‹Œû
-    // –ß‚è’l‚ÌˆÓ–¡:
-    //   >=0  ... Haskell«‘‚ÌRight’l
-    //   -1   ... Haskell«‘‚ÉƒL[‚ª‘¶İ‚µ‚È‚¢
-    //   -2   ... Haskell«‘‚ÉLeft’l‚ªŠi”[‚³‚ê‚Ä‚¢‚é
-    __declspec(dllexport) int getDictValueWrapper(int key) {
-        int result = getDictValue(key);
+    static volatile int g_hs_initialized = 0;
+    static CRITICAL_SECTION g_init_cs;
+    static volatile int g_cs_initialized = 0;
 
-        // ‚±‚±‚ÅC‘¤‚ÅƒGƒ‰[ˆ—‚â•ªŠò‚à‰Â”\
-        // —á:
-        // if (result == -1) { /* ƒL[‚È‚µ‚Ìˆ— */ }
-        // else if (result == -2) { /* Left’l‚Ìˆ— */ }
-        // else { /* ’Êí’l */ }
+    static int ensure_hs_initialized() {
+        if (!g_cs_initialized) {
+            static volatile LONG cs_init_flag = 0;
+            if (InterlockedCompareExchange(&cs_init_flag, 1, 0) == 0) {
+                InitializeCriticalSection(&g_init_cs);
+                g_cs_initialized = 1;
+            }
+            else {
+                while (!g_cs_initialized) {
+                    Sleep(1);
+                }
+            }
+        }
 
-        return result;
+        if (!g_hs_initialized) {
+            EnterCriticalSection(&g_init_cs);
+            if (!g_hs_initialized) {
+                int argc = 1;
+                char* argv[] = { "MyLib", NULL };
+                char** args = argv;
+                hs_init(&argc, &args);
+                g_hs_initialized = 1;
+                OutputDebugStringA("Haskellãƒ©ãƒ³ã‚¿ã‚¤ãƒ åˆæœŸåŒ–å®Œäº†\n");
+            }
+            LeaveCriticalSection(&g_init_cs);
+        }
+        return 1;
+    }
+
+    BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvReserved) {
+        switch (fdwReason) {
+        case DLL_PROCESS_ATTACH:
+            break;
+        case DLL_PROCESS_DETACH:
+            if (g_hs_initialized) {
+                hs_exit();
+            }
+            if (g_cs_initialized) {
+                DeleteCriticalSection(&g_init_cs);
+            }
+            break;
+        }
+        return TRUE;
+    }
+
+    __declspec(dllexport) HsInt32 __stdcall real_len_wrapper(BSTR s, HsInt32 elem1, HsInt32 elem2) {
+        if (!ensure_hs_initialized()) {
+            OutputDebugStringA("real_len_wrapper: Haskellãƒ©ãƒ³ã‚¿ã‚¤ãƒ åˆæœŸåŒ–å¤±æ•—\n");
+            return -999;
+        }
+
+        OutputDebugStringA("real_len_wrapper: é–¢æ•°ãŒå‘¼ã°ã‚Œã¾ã—ãŸ\n");
+
+        if (s == NULL) {
+            OutputDebugStringA("real_len_wrapper: BSTRãŒNULLã§ã™\n");
+            return -1;
+        }
+
+        UINT len = SysStringLen(s);
+        char debug_msg[256];
+        sprintf_s(debug_msg, sizeof(debug_msg), "real_len_wrapper: BSTRãƒã‚¤ãƒ³ã‚¿=0x%p, é•·ã•=%u, elem1=%d, elem2=%d\n", (void*)s, len, elem1, elem2);
+        OutputDebugStringA(debug_msg);
+
+        return real_len((const wchar_t*)s, elem1, elem2);
+    }
+
+    __declspec(dllexport) HsInt32 __stdcall real_len_wrapper_wstr(const wchar_t* s, HsInt32 elem1, HsInt32 elem2) {
+        if (!ensure_hs_initialized()) {
+            OutputDebugStringA("real_len_wrapper_wstr: Haskellãƒ©ãƒ³ã‚¿ã‚¤ãƒ åˆæœŸåŒ–å¤±æ•—\n");
+            return -999;
+        }
+
+        OutputDebugStringA("real_len_wrapper_wstr: é–¢æ•°ãŒå‘¼ã°ã‚Œã¾ã—ãŸ\n");
+
+        if (s == NULL) {
+            OutputDebugStringA("real_len_wrapper_wstr: æ–‡å­—åˆ—ãŒNULLã§ã™\n");
+            return -1;
+        }
+
+        char debug_msg[256];
+        sprintf_s(debug_msg, sizeof(debug_msg), "real_len_wrapper_wstr: æ–‡å­—åˆ—ãƒã‚¤ãƒ³ã‚¿=0x%p, elem1=%d, elem2=%d\n", (void*)s, elem1, elem2);
+        OutputDebugStringA(debug_msg);
+
+        return real_len(s, elem1, elem2);
+    }
+
+    __declspec(dllexport) int __stdcall test_func() {
+        if (!ensure_hs_initialized()) {
+            return -999;
+        }
+        OutputDebugStringA("test_func: called\n");
+        return 42;
+    }
+
+    __declspec(dllexport) int __stdcall initialize_haskell() {
+        return ensure_hs_initialized() ? 1 : 0;
+    }
+
+    __declspec(dllexport) int __stdcall health_check() {
+        return g_hs_initialized ? 1 : 0;
     }
 
 #ifdef __cplusplus
