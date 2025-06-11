@@ -1,20 +1,21 @@
-﻿-- MyLib.hs (部分)
-{-# LANGUAGE ForeignFunctionInterface #-}
+﻿{-# LANGUAGE ForeignFunctionInterface #-}
 module MyLib where
 
 import Foreign
 import Foreign.C.Types
-import Foreign.C.String (CWString, peekCWStringLen) -- ★ peekCWStringLen をインポート
+import Foreign.C.String (CWString, peekCWStringLen, CString, withCString)
 import qualified Data.Map.Strict as Map
-import Data.Char (isSpace, ord)
+import Data.Char (isSpace, ord, chr)
 import Control.Exception (catch, SomeException)
 import System.IO.Unsafe (unsafePerformIO)
-import Foreign.C.String (CString, withCString)
+import Data.List (find)
+import Data.Maybe (listToMaybe)
 
--- Windowsのデバッグ出力API
+-- デバッグ出力
 foreign import ccall "OutputDebugStringA" outputDebugString :: CString -> IO ()
+
 debugMsg :: String -> IO ()
-debugMsg msg = withCString msg outputDebugString
+debugMsg msg = withCString ("HASKELL: " ++ msg) outputDebugString
 
 -- Mapの値をEither String Int型にする
 myDict :: Map.Map Int (Either String Int)
@@ -283,38 +284,223 @@ myDict = Map.fromList [
  (65293, Right 1)
   ]
 
--- 文字列のn番目（1始まり）のUnicode値を返す（空白は除去、長さを明示的に受け取る）
--- ★ len_c を引数に追加
-real_len :: CWString -> CInt -> CInt -> CInt -> IO CInt
-real_len cws len_c elem1 elem2 =
-    (do
-        debugMsg "real_len: 関数が呼ばれました\n"
+-- 安全なリストアクセス
+safeIndex :: [a] -> Int -> Maybe a
+safeIndex xs i
+    | i < 0 || i >= length xs = Nothing
+    | otherwise = Just (xs !! i)
+
+-- ヘブライ語文字種判定（より安全に）
+isHebrewMain :: Int -> Bool
+isHebrewMain x = x >= 1488 && x <= 1522
+
+isDagesh :: Int -> Bool
+isDagesh x = x == 1468
+
+isBiblePoint :: Int -> Bool
+isBiblePoint x = (x >= 1425 && x <= 1455) || x == 1469
+
+isVowelEtc :: Int -> Bool
+isVowelEtc x = (x >= 1456 && x <= 1459) || x == 1467 || x == 1479
+
+-- パターン定義
+data HebrewPattern = HebrewPattern
+    { patternName :: String
+    , patternLength :: Int
+    , patternMatcher :: [Int] -> Bool
+    }
+
+-- パターン定義リスト
+hebrewPatterns :: [HebrewPattern]
+hebrewPatterns = [
+    HebrewPattern "4char_pattern" 4 $ \xs -> case xs of
+        (a:b:c:d:_) -> isHebrewMain a && isDagesh b && isBiblePoint c && isVowelEtc d
+        _ -> False,
+    
+    HebrewPattern "3char_pattern" 3 $ \xs -> case xs of
+        (a:b:c:_) -> isHebrewMain a && isDagesh b && isBiblePoint c
+        _ -> False
+    ]
+
+-- 最長パターンマッチング（安全版）
+findLongestPattern :: [Int] -> Int -> Maybe HebrewPattern
+findLongestPattern xs pos
+    | pos < 0 || pos >= length xs = Nothing
+    | otherwise = 
+        let remaining = drop pos xs
+            remainingLen = length remaining
+        in find (\p -> remainingLen >= patternLength p && 
+                      patternMatcher p remaining) hebrewPatterns
+
+-- 解析結果データ型
+data AnalysisResult = AnalysisResult
+    { columns :: [[Int]]
+    , totalCols :: Int
+    } deriving (Show)
+
+-- 合成文字を作成する関数
+createCompositeChar :: [Int] -> String
+createCompositeChar unicodes = map chr (filter (\x -> x > 0 && x < 1114112) unicodes)
+
+-- 合成文字のUnicode値を計算（簡略化：最初の文字のUnicodeを使用）
+getCompositeUnicode :: String -> Int
+getCompositeUnicode compositeStr = case compositeStr of
+    [] -> 0
+    (c:_) -> ord c
+
+-- 文字列解析（安全版）- 修正版：1行目に合成文字のUnicode値を格納
+analyzeString :: String -> IO AnalysisResult
+analyzeString str = do
+    debugMsg $ "analyzeString: 入力=" ++ str
+    let strNoSpaces = filter (not . isSpace) str
+        unicodes = map ord strNoSpaces
+    debugMsg $ "analyzeString: Unicode配列=" ++ show unicodes
+    result <- processUnicodes unicodes
+    debugMsg $ "analyzeString: 結果=" ++ show result
+    return result
+
+-- Unicode処理（安全版）- 修正版：1行目に合成文字、2行目以降に構成文字を格納
+processUnicodes :: [Int] -> IO AnalysisResult
+processUnicodes unicodes = go unicodes 0 []
+  where
+    go [] _ acc = return $ AnalysisResult (reverse acc) (length acc)
+    go xs pos acc = do
+        case findLongestPattern xs pos of
+            Just pattern -> do
+                let patLen = patternLength pattern
+                    patternChars = take patLen xs
+                    remaining = drop patLen xs
+                    -- 合成文字を作成
+                    compositeStr = createCompositeChar patternChars
+                    compositeUnicode = getCompositeUnicode compositeStr
+                    -- 6行構成：1行目=合成文字のUnicode値、2-6行目=各構成文字（不足分は0で埋める）
+                    newColumn = 0 : patternChars ++ replicate (5 - length patternChars) 0
+                debugMsg $ "パターン発見: " ++ patternName pattern ++ 
+                          ", 構成文字=" ++ show patternChars ++ 
+                          ", 合成文字=" ++ compositeStr ++ 
+                          ", 合成Unicode=" ++ show compositeUnicode ++
+                          ", 列=" ++ show newColumn
+                go remaining (pos + patLen) (newColumn : acc)
+            Nothing ->
+                case safeIndex xs 0 of
+                    Just firstChar -> do
+                        let restChars = drop 1 xs
+                            -- 単一文字の場合：1行目=その文字、2行目=その文字、3-6行目=0
+                            singleCharColumn = 0 : [firstChar] ++ replicate 4 0
+                        debugMsg $ "単一文字: " ++ show firstChar ++ ", 列=" ++ show singleCharColumn
+                        go restChars (pos + 1) (singleCharColumn : acc)
+                    Nothing -> 
+                        -- 理論的には到達しないが、安全のため
+                        return $ AnalysisResult (reverse acc) (length acc)
+
+-- 値取得（1行目は常に0を返すよう修正）
+getValueAt :: AnalysisResult -> Int -> Int -> Int
+getValueAt result row col
+    | col < 1 || col > totalCols result = 0
+    | row < 1 = 0
+    | row == 1 = 0  -- ★ 1行目は常に0を返す
+    | otherwise =
+        case safeIndex (columns result) (col - 1) of
+            Nothing -> 0
+            Just colData ->
+                case safeIndex colData (row - 1) of
+                    Nothing -> 0
+                    Just value -> value
+
+-- 合成文字の取得（デバッグ用）
+getCompositeChar :: AnalysisResult -> Int -> String
+getCompositeChar result col
+    | col < 1 || col > totalCols result = ""
+    | otherwise =
+        case safeIndex (columns result) (col - 1) of
+            Nothing -> ""
+            Just colData ->
+                -- 2行目以降から構成文字を取得して合成文字を再構築
+                let dataRows = drop 1 colData  -- 2行目以降
+                    nonZeros = filter (/= 0) dataRows
+                    validChars = filter (\x -> x > 0 && x < 1114112) nonZeros
+                in map chr validChars
+
+-- メイン関数（修正版）
+real_len_advanced :: CWString -> CInt -> CInt -> CInt -> IO CInt
+real_len_advanced cws len_c elem1 elem2 = do
+    debugMsg "real_len_advanced: 開始"
+    result <- (do
         if cws == nullPtr
             then do
-                debugMsg "real_len: NULL pointer received\n"
+                debugMsg "real_len_advanced: NULL pointer"
                 return (-1)
             else do
-                -- ★ peekCWStringLen を使用し、ポインタと長さを指定
                 str <- peekCWStringLen (castPtr cws, fromIntegral len_c)
-                debugMsg $ "real_len: 入力文字列=" ++ str ++ ", 長さ=" ++ show (length str) ++ "\n" -- ★ 長さもログ出力
-
-                let strNoSpaces = filter (not . isSpace) str
-                    idx = fromIntegral elem2 - 1  -- elem2は1始まり
-
-                if null strNoSpaces || idx < 0 || idx >= Prelude.length strNoSpaces
+                let unicodes = map ord str
+                debugMsg $ "real_len_advanced: 入力文字列長=" ++ show (length str) ++ ", Unicode値=" ++ show unicodes
+                
+                analysisResult <- analyzeString str
+                let row = fromIntegral elem1
+                    col = fromIntegral elem2
+                
+                debugMsg $ "real_len_advanced: row=" ++ show row ++ ", col=" ++ show col
+                
+                let value = getValueAt analysisResult row col
+                
+                -- デバッグ情報を追加
+                if row == 1
                     then do
-                        debugMsg "real_len: 範囲外または空文字列\n"
-                        return (-1)
+                        let compositeStr = getCompositeChar analysisResult col
+                        debugMsg $ "real_len_advanced: 1行目, 合成文字=" ++ compositeStr ++ 
+                                  ", 戻り値=" ++ show value
                     else do
-                        let ch = strNoSpaces !! idx
-                        let unicodeVal = ord ch
-                        debugMsg $ "real_len: 抽出文字=" ++ [ch] ++ ", Unicode値=" ++ show unicodeVal ++ "\n"
-                        return (fromIntegral unicodeVal)
-    ) `catch` (\e -> do
-        debugMsg $ "real_len: 例外が発生しました: " ++ show (e :: SomeException) ++ "\n"
-        return (-998)
-    )
+                        debugMsg $ "real_len_advanced: " ++ show row ++ "行目, 戻り値=" ++ show value
+                
+                return (fromIntegral value)
+                        
+        ) `catch` (\e -> do
+            debugMsg $ "real_len_advanced: 例外=" ++ show (e :: SomeException)
+            return (-998)
+        )
+    
+    debugMsg $ "real_len_advanced: 終了, 結果=" ++ show result
+    return result
 
--- C言語から呼び出せるようにエクスポート (型定義も変更)
--- ★ len_c (CInt) を型シグネチャに追加
+-- 既存関数（修正版）
+real_len :: CWString -> CInt -> CInt -> CInt -> IO CInt
+real_len cws len_c elem1 elem2 = do
+    debugMsg "real_len: 開始"
+    result <- (do
+        if cws == nullPtr
+            then do
+                debugMsg "real_len: NULL pointer"
+                return (-1)
+            else do
+                str <- peekCWStringLen (castPtr cws, fromIntegral len_c)
+                debugMsg $ "real_len: 入力=" ++ str ++ ", 長さ=" ++ show (length str)
+                
+                let strNoSpaces = filter (not . isSpace) str
+                    idx = fromIntegral elem2 - 1
+                
+                debugMsg $ "real_len: インデックス=" ++ show idx ++ ", 文字列長=" ++ show (length strNoSpaces)
+                
+                case strNoSpaces of
+                    [] -> do
+                        debugMsg "real_len: 空文字列"
+                        return 0
+                    _ -> case safeIndex strNoSpaces idx of
+                        Nothing -> do
+                            debugMsg "real_len: 範囲外"
+                            return (-1)
+                        Just ch -> do
+                            let unicodeVal = ord ch
+                            debugMsg $ "real_len: 文字=" ++ [ch] ++ ", Unicode=" ++ show unicodeVal
+                            return (fromIntegral unicodeVal)
+                        
+        ) `catch` (\e -> do
+            debugMsg $ "real_len: 例外=" ++ show (e :: SomeException)
+            return (-998)
+        )
+    
+    debugMsg $ "real_len: 終了, 結果=" ++ show result
+    return result
+
+-- エクスポート
 foreign export ccall real_len :: CWString -> CInt -> CInt -> CInt -> IO CInt
+foreign export ccall real_len_advanced :: CWString -> CInt -> CInt -> CInt -> IO CInt
