@@ -284,43 +284,505 @@ myDict = Map.fromList [
  (65293, Right 1)
   ]
 
+
 -- 安全なリストアクセス
 safeIndex :: [a] -> Int -> Maybe a
 safeIndex xs i
     | i < 0 || i >= length xs = Nothing
     | otherwise = Just (xs !! i)
 
--- ヘブライ語文字種判定（より安全に）
-isHebrewMain :: Int -> Bool
-isHebrewMain x = x >= 1488 && x <= 1522
+-- ヘブライ語文字種判定（より安全に・通番関数で再定義）
 
+-- 1. x = 1460
+isCode1460 :: Int -> Bool
+isCode1460 x = x == 1460
+
+-- 2. x = 1461
+isCode1461 :: Int -> Bool
+isCode1461 x = x == 1461
+
+-- 3. x = 1462
+isCode1462 :: Int -> Bool
+isCode1462 x = x == 1462
+
+-- 4. x = 1463
+isCode1463 :: Int -> Bool
+isCode1463 x = x == 1463
+
+-- 5. x = 1464
+isCode1464 :: Int -> Bool
+isCode1464 x = x == 1464
+
+-- 6. x = 1465
+isCode1465 :: Int -> Bool
+isCode1465 x = x == 1465
+
+-- 7. x = 1466
+isCode1466 :: Int -> Bool
+isCode1466 x = x == 1466
+
+-- 8. x = 1468（ダゲシュ）
 isDagesh :: Int -> Bool
 isDagesh x = x == 1468
 
-isBiblePoint :: Int -> Bool
-isBiblePoint x = (x >= 1425 && x <= 1455) || x == 1469
+-- 9. x = 1488（アレフ）
+isAleph :: Int -> Bool
+isAleph x = x == 1488
 
+-- 10. x = 1493（ヴァヴ）
+isVav :: Int -> Bool
+isVav x = x == 1493
+
+-- 11. x = 1497（ヨッド）
+isYod :: Int -> Bool
+isYod x = x == 1497
+
+-- 12. x ≠ 1497
+isNotYod :: Int -> Bool
+isNotYod x = x /= 1497
+
+-- 13. 1487 < x < 1523（ヘブライ語主文字範囲）
+isHebrewMain :: Int -> Bool
+isHebrewMain x = x > 1487 && x < 1523
+
+-- 14. x = 1488 or x = 1492（アレフまたはベート）
+isAlephOrBet :: Int -> Bool
+isAlephOrBet x = x == 1488 || x == 1492
+
+-- 15. x ≠ 1488 and x ≠ 1492
+isNotAlephAndNotBet :: Int -> Bool
+isNotAlephAndNotBet x = x /= 1488 && x /= 1492
+
+-- 16. x ≠ 1488 and x ≠ 1497
+isNotAlephAndNotYod :: Int -> Bool
+isNotAlephAndNotYod x = x /= 1488 && x /= 1497
+
+-- 17. x ≠ 1488 and x ≠ 1492 and x ≠ 1497
+isNotAlephBetYod :: Int -> Bool
+isNotAlephBetYod x = x /= 1488 && x /= 1492 && x /= 1497
+
+-- 18. x = 1488 or x = 1492 or x = 1497
+isAlephOrBetOrYod :: Int -> Bool
+isAlephOrBetOrYod x = x == 1488 || x == 1492 || x == 1497
+
+-- 19. x ≠ 1471 and x ≠ 1473 and x ≠ 1474 and x ≠ 1479
+isNotSpecialMarks :: Int -> Bool
+isNotSpecialMarks x = not (x `elem` [1471, 1473, 1474, 1479])
+
+-- 20. (x < 1425 or x > 1469) and (x ≠ 1471 and x ≠ 1473 and x ≠ 1474 and x ≠ 1479)
+isOutsideBibleAndNotSpecial :: Int -> Bool
+isOutsideBibleAndNotSpecial x =
+  (x < 1425 || x > 1469) && isNotSpecialMarks x
+
+-- 21. (1425 ≤ x ≤ 1469) or (x = 1471 or x = 1473 or x = 1474 or x = 1479)
+isBibleOrSpecialMarks :: Int -> Bool
+isBibleOrSpecialMarks x =
+  (x >= 1425 && x <= 1469) || (x `elem` [1471, 1473, 1474, 1479])
+
+-- 22. (1455 < x < 1460) or x = 1467 or x = 1479（母音記号など）
 isVowelEtc :: Int -> Bool
-isVowelEtc x = (x >= 1456 && x <= 1459) || x == 1467 || x == 1479
+isVowelEtc x =
+  (x > 1455 && x < 1460) || x == 1467 || x == 1479
+
+-- 23. 1424 < x < 1456 or x = 1469（聖書記号など）
+isBiblePoint :: Int -> Bool
+isBiblePoint x =
+  (x > 1424 && x < 1456) || x == 1469
+
+-- 24. (x ≠ 1471 and x ≠ 1473 and x ≠ 1474 and x ≠ 1479) and (x ≠ 1493)
+isNotSpecialMarksAndNotVav :: Int -> Bool
+isNotSpecialMarksAndNotVav x =
+  isNotSpecialMarks x && x /= 1493
+
+-- 25. (x < 1425 or x > 1469) and (x ≠ 1471 and x ≠ 1473 and x ≠ 1474 and x ≠ 1479 and x ≠ 1497)
+isOutsideBibleAndNotSpecialAndNotYod :: Int -> Bool
+isOutsideBibleAndNotSpecialAndNotYod x =
+  (x < 1425 || x > 1469) && not (x `elem` [1471, 1473, 1474, 1479, 1497])
 
 -- パターン定義
 data HebrewPattern = HebrewPattern
     { patternName :: String
     , patternLength :: Int
     , patternMatcher :: [Int] -> Bool
+    , splitPoint :: Int  -- 何文字目まで最初の列に入れるか (0=全て)
     }
 
 -- パターン定義リスト
 hebrewPatterns :: [HebrewPattern]
 hebrewPatterns = [
-    HebrewPattern "4char_pattern" 4 $ \xs -> case xs of
-        (a:b:c:d:_) -> isHebrewMain a && isDagesh b && isBiblePoint c && isVowelEtc d
-        _ -> False,
-    
-    HebrewPattern "3char_pattern" 3 $ \xs -> case xs of
-        (a:b:c:_) -> isHebrewMain a && isDagesh b && isBiblePoint c
-        _ -> False
-    ]
+   HebrewPattern "7char_test_pattern" 7 (\xs -> case xs of
+    (a:b:c:d:e:f:g:_) -> isHebrewMain a && isDagesh b && isBiblePoint c && isCode1463 d && isAleph e && isYod f && isOutsideBibleAndNotSpecialAndNotYod g
+    _ -> False) 6,
+   HebrewPattern "7char_test_pattern" 7 (\xs -> case xs of
+    (a:b:c:d:e:f:g:_) -> isHebrewMain a && isDagesh b && isBiblePoint c && isCode1464 d && isYod e && isVav f && isNotSpecialMarks g
+    _ -> False) 6,
+   HebrewPattern "7char_test_pattern" 7 (\xs -> case xs of
+    (a:b:c:d:e:f:g:_) -> isHebrewMain a && isDagesh b && isBiblePoint c && isCode1463 d && isAleph e && isYod f && isBibleOrSpecialMarks g
+    _ -> False) 5,
+   HebrewPattern "7char_test_pattern" 7 (\xs -> case xs of
+    (a:b:c:d:e:f:g:_) -> isHebrewMain a && isDagesh b && isBiblePoint c && isCode1464 d && isYod e && isVav f && isBibleOrSpecialMarks g
+    _ -> False) 5,
+   HebrewPattern "7char_test_pattern" 7 (\xs -> case xs of
+    (a:b:c:d:e:f:g:_) -> isHebrewMain a && isDagesh b && isBiblePoint c && isVav d && isCode1466 e && isOutsideBibleAndNotSpecial f && isBibleOrSpecialMarks g
+    _ -> False) 5,
+   HebrewPattern "7char_test_pattern" 7 (\xs -> case xs of
+    (a:b:c:d:e:f:g:_) -> isHebrewMain a && isDagesh b && isBiblePoint c && isVav d && isDagesh e && isOutsideBibleAndNotSpecial f && isBibleOrSpecialMarks g
+    _ -> False) 5,
+   HebrewPattern "6char_test_pattern" 6 (\xs -> case xs of
+    (a:b:c:d:e:f:_) -> isHebrewMain a && isDagesh b && isBiblePoint c && isCode1460 d && isYod e && isOutsideBibleAndNotSpecialAndNotYod f
+    _ -> False) 6,
+   HebrewPattern "6char_test_pattern" 6 (\xs -> case xs of
+    (a:b:c:d:e:f:_) -> isHebrewMain a && isDagesh b && isBiblePoint c && isCode1460 d && isYod e && isBibleOrSpecialMarks f
+    _ -> False) 4,
+   HebrewPattern "6char_test_pattern" 6 (\xs -> case xs of
+    (a:b:c:d:e:f:_) -> isHebrewMain a && isDagesh b && isBiblePoint c && isCode1461 d && isAlephOrBetOrYod e && isOutsideBibleAndNotSpecialAndNotYod f
+    _ -> False) 6,
+   HebrewPattern "6char_test_pattern" 6 (\xs -> case xs of
+    (a:b:c:d:e:f:_) -> isHebrewMain a && isDagesh b && isBiblePoint c && isCode1461 d && isAlephOrBetOrYod e && isBibleOrSpecialMarks f
+    _ -> False) 4,
+   HebrewPattern "6char_test_pattern" 6 (\xs -> case xs of
+    (a:b:c:d:e:f:_) -> isHebrewMain a && isDagesh b && isBiblePoint c && isCode1462 d && isAlephOrBet e && isOutsideBibleAndNotSpecialAndNotYod f
+    _ -> False) 6,
+   HebrewPattern "6char_test_pattern" 6 (\xs -> case xs of
+    (a:b:c:d:e:f:_) -> isHebrewMain a && isDagesh b && isBiblePoint c && isCode1462 d && isAlephOrBet e && isBibleOrSpecialMarks f
+    _ -> False) 4,
+   HebrewPattern "6char_test_pattern" 6 (\xs -> case xs of
+    (a:b:c:d:e:f:_) -> isHebrewMain a && isDagesh b && isBiblePoint c && isCode1463 d && isYod e && isOutsideBibleAndNotSpecialAndNotYod f
+    _ -> False) 6,
+   HebrewPattern "6char_test_pattern" 6 (\xs -> case xs of
+    (a:b:c:d:e:f:_) -> isHebrewMain a && isDagesh b && isBiblePoint c && isCode1463 d && isYod e && isBibleOrSpecialMarks f
+    _ -> False) 4,
+   HebrewPattern "6char_test_pattern" 6 (\xs -> case xs of
+    (a:b:c:d:e:f:_) -> isHebrewMain a && isDagesh b && isBiblePoint c && isCode1464 d && isAlephOrBet e && isOutsideBibleAndNotSpecialAndNotYod f
+    _ -> False) 6,
+   HebrewPattern "6char_test_pattern" 6 (\xs -> case xs of
+    (a:b:c:d:e:f:_) -> isHebrewMain a && isDagesh b && isBiblePoint c && isCode1464 d && isAlephOrBet e && isBibleOrSpecialMarks f
+    _ -> False) 4,
+   HebrewPattern "6char_test_pattern" 6 (\xs -> case xs of
+    (a:b:c:d:e:f:_) -> isHebrewMain a && isDagesh b && isBiblePoint c && isCode1464 d && isYod e && isNotSpecialMarksAndNotVav f
+    _ -> False) 6,
+   HebrewPattern "6char_test_pattern" 6 (\xs -> case xs of
+    (a:b:c:d:e:f:_) -> isHebrewMain a && isDagesh b && isBiblePoint c && isCode1464 d && isYod e && isBibleOrSpecialMarks f
+    _ -> False) 4,
+   HebrewPattern "6char_test_pattern" 6 (\xs -> case xs of
+    (a:b:c:d:e:f:_) -> isHebrewMain a && isDagesh b && isBiblePoint c && isCode1465 d && isAlephOrBet e && isNotSpecialMarks f
+    _ -> False) 6,
+   HebrewPattern "6char_test_pattern" 6 (\xs -> case xs of
+    (a:b:c:d:e:f:_) -> isHebrewMain a && isDagesh b && isBiblePoint c && isCode1465 d && isAlephOrBet e && isBibleOrSpecialMarks f
+    _ -> False) 4,
+   HebrewPattern "6char_test_pattern" 6 (\xs -> case xs of
+    (a:b:c:d:e:f:_) -> isHebrewMain a && isDagesh b && isBiblePoint c && isVav d && isCode1466 e && isOutsideBibleAndNotSpecial f
+    _ -> False) 6,
+   HebrewPattern "6char_test_pattern" 6 (\xs -> case xs of
+    (a:b:c:d:e:f:_) -> isHebrewMain a && isDagesh b && isBiblePoint c && isVav d && isDagesh e && isOutsideBibleAndNotSpecial f
+    _ -> False) 6,
+   HebrewPattern "6char_test_pattern" 6 (\xs -> case xs of
+    (a:b:c:d:e:f:_) -> isHebrewMain a && isDagesh b && isCode1463 c && isAleph d && isYod e && isOutsideBibleAndNotSpecialAndNotYod f
+    _ -> False) 6,
+   HebrewPattern "6char_test_pattern" 6 (\xs -> case xs of
+    (a:b:c:d:e:f:_) -> isHebrewMain a && isDagesh b && isCode1463 c && isAleph d && isYod e && isBibleOrSpecialMarks f
+    _ -> False) 4,
+   HebrewPattern "6char_test_pattern" 6 (\xs -> case xs of
+    (a:b:c:d:e:f:_) -> isHebrewMain a && isDagesh b && isCode1464 c && isYod d && isVav e && isNotSpecialMarks f
+    _ -> False) 6,
+   HebrewPattern "6char_test_pattern" 6 (\xs -> case xs of
+    (a:b:c:d:e:f:_) -> isHebrewMain a && isDagesh b && isCode1464 c && isYod d && isVav e && isBibleOrSpecialMarks f
+    _ -> False) 4,
+   HebrewPattern "6char_test_pattern" 6 (\xs -> case xs of
+    (a:b:c:d:e:f:_) -> isHebrewMain a && isDagesh b && isVav c && isCode1466 d && isOutsideBibleAndNotSpecial e && isBibleOrSpecialMarks f
+    _ -> False) 4,
+   HebrewPattern "6char_test_pattern" 6 (\xs -> case xs of
+    (a:b:c:d:e:f:_) -> isHebrewMain a && isDagesh b && isVav c && isDagesh d && isOutsideBibleAndNotSpecial e && isBibleOrSpecialMarks f
+    _ -> False) 4,
+   HebrewPattern "6char_test_pattern" 6 (\xs -> case xs of
+    (a:b:c:d:e:f:_) -> isHebrewMain a && isBiblePoint b && isCode1463 c && isAleph d && isYod e && isOutsideBibleAndNotSpecialAndNotYod f
+    _ -> False) 6,
+   HebrewPattern "6char_test_pattern" 6 (\xs -> case xs of
+    (a:b:c:d:e:f:_) -> isHebrewMain a && isBiblePoint b && isCode1463 c && isAleph d && isYod e && isBibleOrSpecialMarks f
+    _ -> False) 4,
+   HebrewPattern "6char_test_pattern" 6 (\xs -> case xs of
+    (a:b:c:d:e:f:_) -> isHebrewMain a && isBiblePoint b && isCode1464 c && isYod d && isVav e && isNotSpecialMarks f
+    _ -> False) 6,
+   HebrewPattern "6char_test_pattern" 6 (\xs -> case xs of
+    (a:b:c:d:e:f:_) -> isHebrewMain a && isBiblePoint b && isCode1464 c && isYod d && isVav e && isBibleOrSpecialMarks f
+    _ -> False) 4,
+   HebrewPattern "6char_test_pattern" 6 (\xs -> case xs of
+    (a:b:c:d:e:f:_) -> isHebrewMain a && isBiblePoint b && isVav c && isCode1466 d && isOutsideBibleAndNotSpecial e && isBibleOrSpecialMarks f
+    _ -> False) 4,
+   HebrewPattern "6char_test_pattern" 6 (\xs -> case xs of
+    (a:b:c:d:e:f:_) -> isHebrewMain a && isBiblePoint b && isVav c && isDagesh d && isOutsideBibleAndNotSpecial e && isBibleOrSpecialMarks f
+    _ -> False) 4,
+   HebrewPattern "5char_test_pattern" 5 (\xs -> case xs of
+    (a:b:c:d:e:_) -> isHebrewMain a && isDagesh b && isBiblePoint c && isCode1460 d && isNotYod e
+    _ -> False) 5,
+   HebrewPattern "5char_test_pattern" 5 (\xs -> case xs of
+    (a:b:c:d:e:_) -> isHebrewMain a && isDagesh b && isBiblePoint c && isCode1461 d && isNotAlephBetYod e
+    _ -> False) 5,
+   HebrewPattern "5char_test_pattern" 5 (\xs -> case xs of
+    (a:b:c:d:e:_) -> isHebrewMain a && isDagesh b && isBiblePoint c && isCode1462 d && isNotAlephAndNotBet e
+    _ -> False) 5,
+   HebrewPattern "5char_test_pattern" 5 (\xs -> case xs of
+    (a:b:c:d:e:_) -> isHebrewMain a && isDagesh b && isBiblePoint c && isCode1463 d && isNotAlephAndNotYod e
+    _ -> False) 5,
+   HebrewPattern "5char_test_pattern" 5 (\xs -> case xs of
+    (a:b:c:d:e:_) -> isHebrewMain a && isDagesh b && isBiblePoint c && isCode1464 d && isNotAlephAndNotBet e
+    _ -> False) 5,
+   HebrewPattern "5char_test_pattern" 5 (\xs -> case xs of
+    (a:b:c:d:e:_) -> isHebrewMain a && isDagesh b && isBiblePoint c && isCode1465 d && isNotAlephAndNotBet e
+    _ -> False) 5,
+   HebrewPattern "5char_test_pattern" 5 (\xs -> case xs of
+    (a:b:c:d:e:_) -> isHebrewMain a && isDagesh b && isBiblePoint c && isVav d && isCode1466 e
+    _ -> False) 5,
+   HebrewPattern "5char_test_pattern" 5 (\xs -> case xs of
+    (a:b:c:d:e:_) -> isHebrewMain a && isDagesh b && isBiblePoint c && isVav d && isDagesh e
+    _ -> False) 5,
+   HebrewPattern "5char_test_pattern" 5 (\xs -> case xs of
+    (a:b:c:d:e:_) -> isHebrewMain a && isDagesh b && isCode1460 c && isYod d && isOutsideBibleAndNotSpecialAndNotYod e
+    _ -> False) 5,
+   HebrewPattern "5char_test_pattern" 5 (\xs -> case xs of
+    (a:b:c:d:e:_) -> isHebrewMain a && isDagesh b && isCode1460 c && isYod d && isBibleOrSpecialMarks e
+    _ -> False) 3,
+   HebrewPattern "5char_test_pattern" 5 (\xs -> case xs of
+    (a:b:c:d:e:_) -> isHebrewMain a && isDagesh b && isCode1461 c && isAlephOrBetOrYod d && isOutsideBibleAndNotSpecialAndNotYod e
+    _ -> False) 5,
+   HebrewPattern "5char_test_pattern" 5 (\xs -> case xs of
+    (a:b:c:d:e:_) -> isHebrewMain a && isDagesh b && isCode1461 c && isAlephOrBetOrYod d && isBibleOrSpecialMarks e
+    _ -> False) 3,
+   HebrewPattern "5char_test_pattern" 5 (\xs -> case xs of
+    (a:b:c:d:e:_) -> isHebrewMain a && isDagesh b && isCode1462 c && isAlephOrBet d && isOutsideBibleAndNotSpecialAndNotYod e
+    _ -> False) 5,
+   HebrewPattern "5char_test_pattern" 5 (\xs -> case xs of
+    (a:b:c:d:e:_) -> isHebrewMain a && isDagesh b && isCode1462 c && isAlephOrBet d && isBibleOrSpecialMarks e
+    _ -> False) 3,
+   HebrewPattern "5char_test_pattern" 5 (\xs -> case xs of
+    (a:b:c:d:e:_) -> isHebrewMain a && isDagesh b && isCode1463 c && isYod d && isOutsideBibleAndNotSpecialAndNotYod e
+    _ -> False) 5,
+   HebrewPattern "5char_test_pattern" 5 (\xs -> case xs of
+    (a:b:c:d:e:_) -> isHebrewMain a && isDagesh b && isCode1463 c && isYod d && isBibleOrSpecialMarks e
+    _ -> False) 3,
+   HebrewPattern "5char_test_pattern" 5 (\xs -> case xs of
+    (a:b:c:d:e:_) -> isHebrewMain a && isDagesh b && isCode1464 c && isAlephOrBet d && isOutsideBibleAndNotSpecialAndNotYod e
+    _ -> False) 5,
+   HebrewPattern "5char_test_pattern" 5 (\xs -> case xs of
+    (a:b:c:d:e:_) -> isHebrewMain a && isDagesh b && isCode1464 c && isAlephOrBet d && isBibleOrSpecialMarks e
+    _ -> False) 3,
+   HebrewPattern "5char_test_pattern" 5 (\xs -> case xs of
+    (a:b:c:d:e:_) -> isHebrewMain a && isDagesh b && isCode1464 c && isYod d && isNotSpecialMarksAndNotVav e
+    _ -> False) 5,
+   HebrewPattern "5char_test_pattern" 5 (\xs -> case xs of
+    (a:b:c:d:e:_) -> isHebrewMain a && isDagesh b && isCode1464 c && isYod d && isBibleOrSpecialMarks e
+    _ -> False) 3,
+   HebrewPattern "5char_test_pattern" 5 (\xs -> case xs of
+    (a:b:c:d:e:_) -> isHebrewMain a && isDagesh b && isCode1465 c && isAlephOrBet d && isNotSpecialMarks e
+    _ -> False) 5,
+   HebrewPattern "5char_test_pattern" 5 (\xs -> case xs of
+    (a:b:c:d:e:_) -> isHebrewMain a && isDagesh b && isCode1465 c && isAlephOrBet d && isBibleOrSpecialMarks e
+    _ -> False) 3,
+   HebrewPattern "5char_test_pattern" 5 (\xs -> case xs of
+    (a:b:c:d:e:_) -> isHebrewMain a && isDagesh b && isVav c && isCode1466 d && isOutsideBibleAndNotSpecial e
+    _ -> False) 5,
+   HebrewPattern "5char_test_pattern" 5 (\xs -> case xs of
+    (a:b:c:d:e:_) -> isHebrewMain a && isDagesh b && isVav c && isDagesh d && isOutsideBibleAndNotSpecial e
+    _ -> False) 5,
+   HebrewPattern "5char_test_pattern" 5 (\xs -> case xs of
+    (a:b:c:d:e:_) -> isHebrewMain a && isBiblePoint b && isCode1460 c && isYod d && isOutsideBibleAndNotSpecialAndNotYod e
+    _ -> False) 5,
+   HebrewPattern "5char_test_pattern" 5 (\xs -> case xs of
+    (a:b:c:d:e:_) -> isHebrewMain a && isBiblePoint b && isCode1460 c && isYod d && isBibleOrSpecialMarks e
+    _ -> False) 3,
+   HebrewPattern "5char_test_pattern" 5 (\xs -> case xs of
+    (a:b:c:d:e:_) -> isHebrewMain a && isBiblePoint b && isCode1461 c && isAlephOrBetOrYod d && isOutsideBibleAndNotSpecialAndNotYod e
+    _ -> False) 5,
+   HebrewPattern "5char_test_pattern" 5 (\xs -> case xs of
+    (a:b:c:d:e:_) -> isHebrewMain a && isBiblePoint b && isCode1461 c && isAlephOrBetOrYod d && isBibleOrSpecialMarks e
+    _ -> False) 3,
+   HebrewPattern "5char_test_pattern" 5 (\xs -> case xs of
+    (a:b:c:d:e:_) -> isHebrewMain a && isBiblePoint b && isCode1462 c && isAlephOrBet d && isOutsideBibleAndNotSpecialAndNotYod e
+    _ -> False) 5,
+   HebrewPattern "5char_test_pattern" 5 (\xs -> case xs of
+    (a:b:c:d:e:_) -> isHebrewMain a && isBiblePoint b && isCode1462 c && isAlephOrBet d && isBibleOrSpecialMarks e
+    _ -> False) 3,
+   HebrewPattern "5char_test_pattern" 5 (\xs -> case xs of
+    (a:b:c:d:e:_) -> isHebrewMain a && isBiblePoint b && isCode1463 c && isYod d && isOutsideBibleAndNotSpecialAndNotYod e
+    _ -> False) 5,
+   HebrewPattern "5char_test_pattern" 5 (\xs -> case xs of
+    (a:b:c:d:e:_) -> isHebrewMain a && isBiblePoint b && isCode1463 c && isYod d && isBibleOrSpecialMarks e
+    _ -> False) 3,
+   HebrewPattern "5char_test_pattern" 5 (\xs -> case xs of
+    (a:b:c:d:e:_) -> isHebrewMain a && isBiblePoint b && isCode1464 c && isAlephOrBet d && isOutsideBibleAndNotSpecialAndNotYod e
+    _ -> False) 5,
+   HebrewPattern "5char_test_pattern" 5 (\xs -> case xs of
+    (a:b:c:d:e:_) -> isHebrewMain a && isBiblePoint b && isCode1464 c && isAlephOrBet d && isBibleOrSpecialMarks e
+    _ -> False) 3,
+   HebrewPattern "5char_test_pattern" 5 (\xs -> case xs of
+    (a:b:c:d:e:_) -> isHebrewMain a && isBiblePoint b && isCode1464 c && isYod d && isNotSpecialMarksAndNotVav e
+    _ -> False) 5,
+   HebrewPattern "5char_test_pattern" 5 (\xs -> case xs of
+    (a:b:c:d:e:_) -> isHebrewMain a && isBiblePoint b && isCode1464 c && isYod d && isBibleOrSpecialMarks e
+    _ -> False) 3,
+   HebrewPattern "5char_test_pattern" 5 (\xs -> case xs of
+    (a:b:c:d:e:_) -> isHebrewMain a && isBiblePoint b && isCode1465 c && isAlephOrBet d && isNotSpecialMarks e
+    _ -> False) 5,
+   HebrewPattern "5char_test_pattern" 5 (\xs -> case xs of
+    (a:b:c:d:e:_) -> isHebrewMain a && isBiblePoint b && isCode1465 c && isAlephOrBet d && isBibleOrSpecialMarks e
+    _ -> False) 3,
+   HebrewPattern "5char_test_pattern" 5 (\xs -> case xs of
+    (a:b:c:d:e:_) -> isHebrewMain a && isBiblePoint b && isVav c && isCode1466 d && isOutsideBibleAndNotSpecial e
+    _ -> False) 5,
+   HebrewPattern "5char_test_pattern" 5 (\xs -> case xs of
+    (a:b:c:d:e:_) -> isHebrewMain a && isBiblePoint b && isVav c && isDagesh d && isOutsideBibleAndNotSpecial e
+    _ -> False) 5,
+   HebrewPattern "5char_test_pattern" 5 (\xs -> case xs of
+    (a:b:c:d:e:_) -> isHebrewMain a && isCode1463 b && isAleph c && isYod d && isOutsideBibleAndNotSpecialAndNotYod e
+    _ -> False) 5,
+   HebrewPattern "5char_test_pattern" 5 (\xs -> case xs of
+    (a:b:c:d:e:_) -> isHebrewMain a && isCode1463 b && isAleph c && isYod d && isBibleOrSpecialMarks e
+    _ -> False) 3,
+   HebrewPattern "5char_test_pattern" 5 (\xs -> case xs of
+    (a:b:c:d:e:_) -> isHebrewMain a && isCode1464 b && isYod c && isVav d && isNotSpecialMarks e
+    _ -> False) 5,
+   HebrewPattern "5char_test_pattern" 5 (\xs -> case xs of
+    (a:b:c:d:e:_) -> isHebrewMain a && isCode1464 b && isYod c && isVav d && isBibleOrSpecialMarks e
+    _ -> False) 3,
+   HebrewPattern "5char_test_pattern" 5 (\xs -> case xs of
+    (a:b:c:d:e:_) -> isHebrewMain a && isVav b && isCode1466 c && isOutsideBibleAndNotSpecial d && isBibleOrSpecialMarks e
+    _ -> False) 3,
+   HebrewPattern "5char_test_pattern" 5 (\xs -> case xs of
+    (a:b:c:d:e:_) -> isHebrewMain a && isVav b && isDagesh c && isOutsideBibleAndNotSpecial d && isBibleOrSpecialMarks e
+    _ -> False) 3,
+   HebrewPattern "4char_test_pattern" 4 (\xs -> case xs of
+    (a:b:c:d:_) -> isHebrewMain a && isDagesh b && isBiblePoint c && isVowelEtc d
+    _ -> False) 4,
+   HebrewPattern "4char_test_pattern" 4 (\xs -> case xs of
+    (a:b:c:d:_) -> isHebrewMain a && isDagesh b && isCode1460 c && isNotYod d
+    _ -> False) 4,
+   HebrewPattern "4char_test_pattern" 4 (\xs -> case xs of
+    (a:b:c:d:_) -> isHebrewMain a && isDagesh b && isCode1461 c && isNotAlephBetYod d
+    _ -> False) 4,
+   HebrewPattern "4char_test_pattern" 4 (\xs -> case xs of
+    (a:b:c:d:_) -> isHebrewMain a && isDagesh b && isCode1462 c && isNotAlephAndNotBet d
+    _ -> False) 4,
+   HebrewPattern "4char_test_pattern" 4 (\xs -> case xs of
+    (a:b:c:d:_) -> isHebrewMain a && isDagesh b && isCode1463 c && isNotAlephAndNotYod d
+    _ -> False) 4,
+   HebrewPattern "4char_test_pattern" 4 (\xs -> case xs of
+    (a:b:c:d:_) -> isHebrewMain a && isDagesh b && isCode1464 c && isNotAlephAndNotBet d
+    _ -> False) 4,
+   HebrewPattern "4char_test_pattern" 4 (\xs -> case xs of
+    (a:b:c:d:_) -> isHebrewMain a && isDagesh b && isCode1465 c && isNotAlephAndNotBet d
+    _ -> False) 4,
+   HebrewPattern "4char_test_pattern" 4 (\xs -> case xs of
+    (a:b:c:d:_) -> isHebrewMain a && isDagesh b && isVav c && isCode1466 d
+    _ -> False) 4,
+   HebrewPattern "4char_test_pattern" 4 (\xs -> case xs of
+    (a:b:c:d:_) -> isHebrewMain a && isDagesh b && isVav c && isDagesh d
+    _ -> False) 4,
+   HebrewPattern "4char_test_pattern" 4 (\xs -> case xs of
+    (a:b:c:d:_) -> isHebrewMain a && isBiblePoint b && isCode1460 c && isNotYod d
+    _ -> False) 4,
+   HebrewPattern "4char_test_pattern" 4 (\xs -> case xs of
+    (a:b:c:d:_) -> isHebrewMain a && isBiblePoint b && isCode1461 c && isNotAlephBetYod d
+    _ -> False) 4,
+   HebrewPattern "4char_test_pattern" 4 (\xs -> case xs of
+    (a:b:c:d:_) -> isHebrewMain a && isBiblePoint b && isCode1462 c && isNotAlephAndNotBet d
+    _ -> False) 4,
+   HebrewPattern "4char_test_pattern" 4 (\xs -> case xs of
+    (a:b:c:d:_) -> isHebrewMain a && isBiblePoint b && isCode1463 c && isNotAlephAndNotYod d
+    _ -> False) 4,
+   HebrewPattern "4char_test_pattern" 4 (\xs -> case xs of
+    (a:b:c:d:_) -> isHebrewMain a && isBiblePoint b && isCode1464 c && isNotAlephAndNotBet d
+    _ -> False) 4,
+   HebrewPattern "4char_test_pattern" 4 (\xs -> case xs of
+    (a:b:c:d:_) -> isHebrewMain a && isBiblePoint b && isCode1465 c && isNotAlephAndNotBet d
+    _ -> False) 4,
+   HebrewPattern "4char_test_pattern" 4 (\xs -> case xs of
+    (a:b:c:d:_) -> isHebrewMain a && isBiblePoint b && isVav c && isCode1466 d
+    _ -> False) 4,
+   HebrewPattern "4char_test_pattern" 4 (\xs -> case xs of
+    (a:b:c:d:_) -> isHebrewMain a && isBiblePoint b && isVav c && isDagesh d
+    _ -> False) 4,
+   HebrewPattern "4char_test_pattern" 4 (\xs -> case xs of
+    (a:b:c:d:_) -> isHebrewMain a && isCode1460 b && isYod c && isOutsideBibleAndNotSpecialAndNotYod d
+    _ -> False) 4,
+   HebrewPattern "4char_test_pattern" 4 (\xs -> case xs of
+    (a:b:c:d:_) -> isHebrewMain a && isCode1460 b && isYod c && isBibleOrSpecialMarks d
+    _ -> False) 2,
+   HebrewPattern "4char_test_pattern" 4 (\xs -> case xs of
+    (a:b:c:d:_) -> isHebrewMain a && isCode1461 b && isAlephOrBetOrYod c && isOutsideBibleAndNotSpecialAndNotYod d
+    _ -> False) 4,
+   HebrewPattern "4char_test_pattern" 4 (\xs -> case xs of
+    (a:b:c:d:_) -> isHebrewMain a && isCode1461 b && isAlephOrBetOrYod c && isBibleOrSpecialMarks d
+    _ -> False) 2,
+   HebrewPattern "4char_test_pattern" 4 (\xs -> case xs of
+    (a:b:c:d:_) -> isHebrewMain a && isCode1462 b && isAlephOrBet c && isOutsideBibleAndNotSpecialAndNotYod d
+    _ -> False) 4,
+   HebrewPattern "4char_test_pattern" 4 (\xs -> case xs of
+    (a:b:c:d:_) -> isHebrewMain a && isCode1462 b && isAlephOrBet c && isBibleOrSpecialMarks d
+    _ -> False) 2,
+   HebrewPattern "4char_test_pattern" 4 (\xs -> case xs of
+    (a:b:c:d:_) -> isHebrewMain a && isCode1463 b && isYod c && isOutsideBibleAndNotSpecialAndNotYod d
+    _ -> False) 4,
+   HebrewPattern "4char_test_pattern" 4 (\xs -> case xs of
+    (a:b:c:d:_) -> isHebrewMain a && isCode1463 b && isYod c && isBibleOrSpecialMarks d
+    _ -> False) 2,
+   HebrewPattern "4char_test_pattern" 4 (\xs -> case xs of
+    (a:b:c:d:_) -> isHebrewMain a && isCode1464 b && isAlephOrBet c && isOutsideBibleAndNotSpecialAndNotYod d
+    _ -> False) 4,
+   HebrewPattern "4char_test_pattern" 4 (\xs -> case xs of
+    (a:b:c:d:_) -> isHebrewMain a && isCode1464 b && isAlephOrBet c && isBibleOrSpecialMarks d
+    _ -> False) 2,
+   HebrewPattern "4char_test_pattern" 4 (\xs -> case xs of
+    (a:b:c:d:_) -> isHebrewMain a && isCode1464 b && isYod c && isNotSpecialMarksAndNotVav d
+    _ -> False) 4,
+   HebrewPattern "4char_test_pattern" 4 (\xs -> case xs of
+    (a:b:c:d:_) -> isHebrewMain a && isCode1464 b && isYod c && isBibleOrSpecialMarks d
+    _ -> False) 2,
+   HebrewPattern "4char_test_pattern" 4 (\xs -> case xs of
+    (a:b:c:d:_) -> isHebrewMain a && isCode1465 b && isAlephOrBet c && isNotSpecialMarks d
+    _ -> False) 4,
+   HebrewPattern "4char_test_pattern" 4 (\xs -> case xs of
+    (a:b:c:d:_) -> isHebrewMain a && isCode1465 b && isAlephOrBet c && isBibleOrSpecialMarks d
+    _ -> False) 2,
+   HebrewPattern "4char_test_pattern" 4 (\xs -> case xs of
+    (a:b:c:d:_) -> isHebrewMain a && isVav b && isCode1466 c && isOutsideBibleAndNotSpecial d
+    _ -> False) 4,
+   HebrewPattern "4char_test_pattern" 4 (\xs -> case xs of
+    (a:b:c:d:_) -> isHebrewMain a && isVav b && isDagesh c && isOutsideBibleAndNotSpecial d
+    _ -> False) 4,
+   HebrewPattern "3char_test_pattern" 3 (\xs -> case xs of
+    (a:b:c:_) -> isHebrewMain a && isDagesh b && isVowelEtc c
+    _ -> False) 3,
+   HebrewPattern "3char_test_pattern" 3 (\xs -> case xs of
+    (a:b:c:_) -> isHebrewMain a && isBiblePoint b && isVowelEtc c
+    _ -> False) 3,
+   HebrewPattern "3char_test_pattern" 3 (\xs -> case xs of
+    (a:b:c:_) -> isHebrewMain a && isCode1460 b && isNotYod c
+    _ -> False) 3,
+   HebrewPattern "3char_test_pattern" 3 (\xs -> case xs of
+    (a:b:c:_) -> isHebrewMain a && isCode1461 b && isNotAlephBetYod c
+    _ -> False) 3,
+   HebrewPattern "3char_test_pattern" 3 (\xs -> case xs of
+    (a:b:c:_) -> isHebrewMain a && isCode1462 b && isNotAlephAndNotBet c
+    _ -> False) 3,
+   HebrewPattern "3char_test_pattern" 3 (\xs -> case xs of
+    (a:b:c:_) -> isHebrewMain a && isCode1463 b && isNotAlephAndNotYod c
+    _ -> False) 3,
+   HebrewPattern "3char_test_pattern" 3 (\xs -> case xs of
+    (a:b:c:_) -> isHebrewMain a && isCode1464 b && isNotAlephAndNotBet c
+    _ -> False) 3,
+   HebrewPattern "3char_test_pattern" 3 (\xs -> case xs of
+    (a:b:c:_) -> isHebrewMain a && isCode1465 b && isNotAlephAndNotBet c
+    _ -> False) 3,
+   HebrewPattern "3char_test_pattern" 3 (\xs -> case xs of
+    (a:b:c:_) -> isHebrewMain a && isVav b && isCode1466 c
+    _ -> False) 3,
+   HebrewPattern "3char_test_pattern" 3 (\xs -> case xs of
+    (a:b:c:_) -> isHebrewMain a && isVav b && isDagesh c
+    _ -> False) 3,
+   HebrewPattern "2char_test_pattern" 2 (\xs -> case xs of
+    (a:b:_) -> isHebrewMain a && isVowelEtc b
+    _ -> False) 2
+   ]
 
 -- 最長パターンマッチング（安全版）
 findLongestPattern :: [Int] -> Int -> Maybe HebrewPattern
@@ -342,7 +804,7 @@ data AnalysisResult = AnalysisResult
 createCompositeChar :: [Int] -> String
 createCompositeChar unicodes = map chr (filter (\x -> x > 0 && x < 1114112) unicodes)
 
--- 合成文字のUnicode値を計算（簡略化：最初の文字のUnicodeを使用）
+-- 合成文字のUnicode値を計算（簡略化：最初の文字のUnicodeを使用）#NAME?
 getCompositeUnicode :: String -> Int
 getCompositeUnicode compositeStr = case compositeStr of
     [] -> 0
@@ -368,29 +830,44 @@ processUnicodes unicodes = go unicodes 0 []
         case findLongestPattern xs pos of
             Just pattern -> do
                 let patLen = patternLength pattern
+                    split = splitPoint pattern
                     patternChars = take patLen xs
                     remaining = drop patLen xs
-                    -- 合成文字を作成
-                    compositeStr = createCompositeChar patternChars
+                    
+                    -- 分割処理
+                    (firstColChars, nextColChars) = 
+                        if split > 0 && split < patLen
+                        then (take split patternChars, drop split patternChars)
+                        else (patternChars, [])
+                    
+                    -- 最初の列データ作成
+                    compositeStr = createCompositeChar firstColChars
                     compositeUnicode = getCompositeUnicode compositeStr
-                    -- 6行構成：1行目=合成文字のUnicode値、2-6行目=各構成文字（不足分は0で埋める）
-                    newColumn = 0 : patternChars ++ replicate (5 - length patternChars) 0
+                    firstColumn = 0 : firstColChars ++ replicate (5 - length firstColChars) 0
+                    
                 debugMsg $ "パターン発見: " ++ patternName pattern ++ 
-                          ", 構成文字=" ++ show patternChars ++ 
-                          ", 合成文字=" ++ compositeStr ++ 
-                          ", 合成Unicode=" ++ show compositeUnicode ++
-                          ", 列=" ++ show newColumn
-                go remaining (pos + patLen) (newColumn : acc)
+                          ", パターン長=" ++ show patLen ++
+                          ", 分割点=" ++ show split ++
+                          ", 全パターン文字=" ++ show patternChars ++
+                          ", 最初の列=" ++ show firstColChars ++
+                          ", 次の列=" ++ show nextColChars ++
+                          ", 分割実行=" ++ show (split > 0 && split < patLen)
+                
+                -- 次の列の文字がある場合の処理
+                if null nextColChars
+                then go remaining (pos + patLen) (firstColumn : acc)
+                else do
+                    let nextColumn = 0 : nextColChars ++ replicate (5 - length nextColChars) 0
+                    go remaining (pos + patLen) (nextColumn : firstColumn : acc)
+                    
             Nothing ->
                 case safeIndex xs 0 of
                     Just firstChar -> do
                         let restChars = drop 1 xs
-                            -- 単一文字の場合：1行目=その文字、2行目=その文字、3-6行目=0
                             singleCharColumn = 0 : [firstChar] ++ replicate 4 0
                         debugMsg $ "単一文字: " ++ show firstChar ++ ", 列=" ++ show singleCharColumn
                         go restChars (pos + 1) (singleCharColumn : acc)
                     Nothing -> 
-                        -- 理論的には到達しないが、安全のため
                         return $ AnalysisResult (reverse acc) (length acc)
 
 -- 値取得（1行目は常に0を返すよう修正）
