@@ -3,19 +3,19 @@ module MyLib where
 
 import Foreign
 import Foreign.C.Types
-import Foreign.C.String (CWString, peekCWStringLen, CString, withCString)
+import Foreign.C.String (CWString, peekCWString, peekCWStringLen, CString, withCString, withCWString)
 import qualified Data.Map.Strict as Map
 import Data.Char (isSpace, ord, chr)
 import Control.Exception (catch, SomeException)
 import System.IO.Unsafe (unsafePerformIO)
 import Data.List (find)
-import Data.Maybe (listToMaybe)
+import Data.Maybe (listToMaybe, mapMaybe)
+import Control.Monad (when)
 
--- デバッグ出力
-foreign import ccall "OutputDebugStringA" outputDebugString :: CString -> IO ()
-
-debugMsg :: String -> IO ()
-debugMsg msg = withCString ("HASKELL: " ++ msg) outputDebugString
+-- エクスポート
+foreign export ccall real_len :: CWString -> CInt -> CInt -> CInt -> IO CInt
+foreign export ccall real_len_advanced :: CWString -> CInt -> CInt -> CInt -> IO CInt
+foreign export ccall real_value_new_improved :: CWString -> CInt -> CInt -> CInt -> IO CInt
 
 -- Mapの値をEither String Int型にする
 myDict :: Map.Map Int (Either String Int)
@@ -291,7 +291,126 @@ safeIndex xs i
     | i < 0 || i >= length xs = Nothing
     | otherwise = Just (xs !! i)
 
--- ヘブライ語文字種判定（より安全に・通番関数で再定義）
+-- ★ 修正版解析結果データ型 - real_len_advancedと同じ構造
+data ValueAnalysisResult = ValueAnalysisResult
+    { valueColumns :: [[Int]]  -- 各列のデータ (6行固定)
+    , valueTotalCols :: Int
+    } deriving (Show)
+
+-- ★ 文字の値を取得(分岐処理対応)
+getCharValue :: Int -> Int
+getCharValue char
+    | isArabicDigit char = getArabicValue char  -- アラビア数字は単純な値
+    | isRomanNumeral char = getRomanValue char  -- ローマ数字も単純な値
+    | otherwise = case Map.lookup char myDict of
+        Just (Right v) -> v
+        _ -> 0
+
+-- ★ 修正版:real_len_advancedと対応する値解析
+analyzeStringForValues :: String -> IO ValueAnalysisResult
+analyzeStringForValues str = do
+    let strNoSpaces = filter (not . isSpace) str
+        unicodes = map ord strNoSpaces
+    result <- processUnicodesForValues unicodes
+    return result
+
+-- ★ 修正版:Unicode処理(real_len_advancedのロジックを値計算用に変更)
+processUnicodesForValues :: [Int] -> IO ValueAnalysisResult
+processUnicodesForValues unicodes = go unicodes 0 []
+  where
+    go [] _ acc = return $ ValueAnalysisResult (reverse acc) (length acc)
+    go xs pos acc = do
+        -- ★ 追加：3文字ローマ数字パターンを最初にチェック
+        case checkRomanPattern (take 3 xs) of
+            Just (totalValue, 3) -> do
+                let patternChars = take 3 xs
+                    remaining = drop 3 xs
+                    -- 3文字パターンの個別値を計算
+                    individualValues = calculateIndividualRomanValues patternChars 3 totalValue
+                    -- 3つの列を作成
+                    columns = map (\val -> 0 : [val] ++ replicate 4 0) individualValues
+                go remaining (pos + 3) (reverse columns ++ acc)
+            _ -> case findLongestPattern xs pos of
+                Just pattern -> do
+                    let patLen = patternLength pattern
+                        split = splitPoint pattern
+                        patternChars = take patLen xs
+                        remaining = drop patLen xs
+                        
+                        -- 分割処理（real_len_advancedと同じ）
+                        (firstColChars, nextColChars) = 
+                            if split > 0 && split < patLen
+                            then (take split patternChars, drop split patternChars)
+                            else (patternChars, [])
+                        
+                        -- ★ 最初の列データ作成（値版）
+                        firstColValues = processSpecialCharsAdvanced unicodes firstColChars pos
+                        firstColumn = 0 : firstColValues ++ replicate (5 - length firstColValues) 0
+                    
+                    -- 次の列の文字がある場合の処理
+                    if null nextColChars
+                    then go remaining (pos + patLen) (firstColumn : acc)
+                    else do
+                        let nextColValues = processSpecialCharsAdvanced unicodes nextColChars (pos + split)
+                            nextColumn = 0 : nextColValues ++ replicate (5 - length nextColValues) 0
+                        go remaining (pos + patLen) (nextColumn : firstColumn : acc)
+                        
+                Nothing ->
+                    case safeIndex xs 0 of
+                        Just firstChar -> do
+                            let restChars = drop 1 xs
+                                -- 単一文字の場合も高度な値計算を適用
+                                charValue = calculateAdvancedValue unicodes pos firstChar
+                                singleCharColumn = 0 : [charValue] ++ replicate 4 0
+                            go restChars (pos + 1) (singleCharColumn : acc)
+                        Nothing -> 
+                            return $ ValueAnalysisResult (reverse acc) (length acc)
+
+-- ★ 特殊文字処理(アラビア数字・ローマ数字の分岐処理)- これは古い定義になるため,Advancedの方を使用
+processSpecialChars :: [Int] -> [Int]
+processSpecialChars chars = map processSingleChar chars
+
+-- ★ 単一文字の値計算(分岐処理対応)- これは古い定義になるため,Advancedの方を使用
+processSingleChar :: Int -> Int
+processSingleChar char
+    | isArabicDigit char = getArabicValue char
+    | isRomanNumeral char = getRomanValue char
+    | char == 390 = 0
+    | otherwise = case Map.lookup char myDict of
+        Just (Right v) -> v
+        _ -> 0
+
+-- ★ より高度な処理:文字列全体での位取り・パターン計算
+processSpecialCharsAdvanced :: [Int] -> [Int] -> Int -> [Int]
+processSpecialCharsAdvanced allUnicodes chars startPos = 
+    -- ここでcharsリストの各文字に対して、全体unicodesとstartPosからのオフセットを考慮して値計算を行う
+    -- 元のコードの `calculateAdvancedValue` は単一文字とポジションの計算をするため、mapで適用
+    map (\(char, offset) -> calculateAdvancedValue allUnicodes (startPos + offset) char) 
+        (zip chars [0..])
+
+-- ★ 高度な値計算(位取り・ローマ数字パターン対応)
+calculateAdvancedValue :: [Int] -> Int -> Int -> Int
+calculateAdvancedValue allUnicodes pos char
+    | pos < 0 || pos >= length allUnicodes = 0 -- 範囲外の場合は0
+    | isArabicDigit char = calculateDigitValue allUnicodes pos
+    | isRomanNumeralExtended char = 
+        let remainingFromPos = drop pos allUnicodes
+        in case checkRomanPattern remainingFromPos of
+            Just (totalValue, consumed) ->
+                -- パターン全体の値は取得できるが、個別の文字への分割が必要
+                -- calculateIndividualRomanValues は消費文字数と合計値から個別の値リストを返す
+                let individualValues = calculateIndividualRomanValues remainingFromPos consumed totalValue
+                    -- この `char` がパターン内の何番目の文字かを特定する必要があるが、
+                    -- calculateAdvancedValueは個々の文字に対して呼ばれるため、パターン内の最初の文字と仮定する
+                    -- 複雑なパターンの場合、この関数はシンプルに最初の文字の値のみを返す
+                    -- または、パターン全体の値を最初の文字に集約する
+                in if not (null individualValues) && (pos - findSequenceStart allUnicodes pos) < length individualValues
+                   then individualValues !! (pos - findSequenceStart allUnicodes pos)
+                   else getCharValue char -- パターンにマッチしないか、パターン内の位置が不正なら単一文字の値
+            Nothing -> getCharValue char
+    | otherwise = getCharValue char -- 通常の文字はmyDictから取得
+
+-- ヘブライ語文字種判定(より安全に・通番関数で再定義)
 
 -- 1. x = 1460
 isCode1460 :: Int -> Bool
@@ -399,6 +518,16 @@ isOutsideBibleAndNotSpecialAndNotYod :: Int -> Bool
 isOutsideBibleAndNotSpecialAndNotYod x =
   (x < 1425 || x > 1469) && not (x `elem` [1471, 1473, 1474, 1479, 1497])
 
+--以下,ヘブライ語以外
+-- 26
+isCode547 :: Int -> Bool
+isCode547 x = x == 547
+
+-- 27
+isCode771 :: Int -> Bool
+isCode771 x = x == 771
+
+
 -- パターン定義
 data HebrewPattern = HebrewPattern
     { patternName :: String
@@ -407,7 +536,7 @@ data HebrewPattern = HebrewPattern
     , splitPoint :: Int  -- 何文字目まで最初の列に入れるか (0=全て)
     }
 
--- パターン定義リスト
+-- パターン定義リスト1
 hebrewPatterns :: [HebrewPattern]
 hebrewPatterns = [
    HebrewPattern "7char_test_pattern" 7 (\xs -> case xs of
@@ -781,10 +910,15 @@ hebrewPatterns = [
     _ -> False) 3,
    HebrewPattern "2char_test_pattern" 2 (\xs -> case xs of
     (a:b:_) -> isHebrewMain a && isVowelEtc b
+    _ -> False) 2,
+    
+    --ヘブライ語以外
+    HebrewPattern "combining_char_547_771" 2 (\xs -> case xs of
+    (a:b:_) -> a == 547 && b == 771
     _ -> False) 2
    ]
 
--- 最長パターンマッチング（安全版）
+-- 最長パターンマッチング(安全版)
 findLongestPattern :: [Int] -> Int -> Maybe HebrewPattern
 findLongestPattern xs pos
     | pos < 0 || pos >= length xs = Nothing
@@ -813,12 +947,9 @@ getCompositeUnicode compositeStr = case compositeStr of
 -- 文字列解析（安全版）- 修正版：1行目に合成文字のUnicode値を格納
 analyzeString :: String -> IO AnalysisResult
 analyzeString str = do
-    debugMsg $ "analyzeString: 入力=" ++ str
     let strNoSpaces = filter (not . isSpace) str
         unicodes = map ord strNoSpaces
-    debugMsg $ "analyzeString: Unicode配列=" ++ show unicodes
     result <- processUnicodes unicodes
-    debugMsg $ "analyzeString: 結果=" ++ show result
     return result
 
 -- Unicode処理（安全版）- 修正版：1行目に合成文字、2行目以降に構成文字を格納
@@ -844,14 +975,6 @@ processUnicodes unicodes = go unicodes 0 []
                     compositeStr = createCompositeChar firstColChars
                     compositeUnicode = getCompositeUnicode compositeStr
                     firstColumn = 0 : firstColChars ++ replicate (5 - length firstColChars) 0
-                    
-                debugMsg $ "パターン発見: " ++ patternName pattern ++ 
-                          ", パターン長=" ++ show patLen ++
-                          ", 分割点=" ++ show split ++
-                          ", 全パターン文字=" ++ show patternChars ++
-                          ", 最初の列=" ++ show firstColChars ++
-                          ", 次の列=" ++ show nextColChars ++
-                          ", 分割実行=" ++ show (split > 0 && split < patLen)
                 
                 -- 次の列の文字がある場合の処理
                 if null nextColChars
@@ -865,7 +988,6 @@ processUnicodes unicodes = go unicodes 0 []
                     Just firstChar -> do
                         let restChars = drop 1 xs
                             singleCharColumn = 0 : [firstChar] ++ replicate 4 0
-                        debugMsg $ "単一文字: " ++ show firstChar ++ ", 列=" ++ show singleCharColumn
                         go restChars (pos + 1) (singleCharColumn : acc)
                     Nothing -> 
                         return $ AnalysisResult (reverse acc) (length acc)
@@ -884,7 +1006,21 @@ getValueAt result row col
                     Nothing -> 0
                     Just value -> value
 
--- 合成文字の取得（デバッグ用）
+-- ★ 修正版:値取得 (real_len_advancedと同じインターフェース)
+getValueAtPosition :: ValueAnalysisResult -> Int -> Int -> Int
+getValueAtPosition result row col
+    | col < 1 || col > valueTotalCols result = 0
+    | row < 1 = 0
+    | row == 1 = 0  -- 1行目は常に0（real_len_advancedと同じ）
+    | otherwise =
+        case safeIndex (valueColumns result) (col - 1) of
+            Nothing -> 0
+            Just colData ->
+                case safeIndex colData (row - 1) of
+                    Nothing -> 0
+                    Just value -> value
+
+-- 合成文字の取得(デバッグ用)
 getCompositeChar :: AnalysisResult -> Int -> String
 getCompositeChar result col
     | col < 1 || col > totalCols result = ""
@@ -898,86 +1034,291 @@ getCompositeChar result col
                     validChars = filter (\x -> x > 0 && x < 1114112) nonZeros
                 in map chr validChars
 
--- メイン関数（修正版）
+-- メイン関数(修正版)
 real_len_advanced :: CWString -> CInt -> CInt -> CInt -> IO CInt
 real_len_advanced cws len_c elem1 elem2 = do
-    debugMsg "real_len_advanced: 開始"
     result <- (do
         if cws == nullPtr
-            then do
-                debugMsg "real_len_advanced: NULL pointer"
-                return (-1)
+            then return (-1)
             else do
                 str <- peekCWStringLen (castPtr cws, fromIntegral len_c)
                 let unicodes = map ord str
-                debugMsg $ "real_len_advanced: 入力文字列長=" ++ show (length str) ++ ", Unicode値=" ++ show unicodes
-                
                 analysisResult <- analyzeString str
                 let row = fromIntegral elem1
                     col = fromIntegral elem2
-                
-                debugMsg $ "real_len_advanced: row=" ++ show row ++ ", col=" ++ show col
-                
-                let value = getValueAt analysisResult row col
-                
-                -- デバッグ情報を追加
-                if row == 1
-                    then do
-                        let compositeStr = getCompositeChar analysisResult col
-                        debugMsg $ "real_len_advanced: 1行目, 合成文字=" ++ compositeStr ++ 
-                                  ", 戻り値=" ++ show value
-                    else do
-                        debugMsg $ "real_len_advanced: " ++ show row ++ "行目, 戻り値=" ++ show value
-                
+                    value = getValueAt analysisResult row col
                 return (fromIntegral value)
-                        
-        ) `catch` (\e -> do
-            debugMsg $ "real_len_advanced: 例外=" ++ show (e :: SomeException)
-            return (-998)
-        )
-    
-    debugMsg $ "real_len_advanced: 終了, 結果=" ++ show result
+        ) `catch` (\(_ :: SomeException) -> return (-998))
     return result
 
--- 既存関数（修正版）
-real_len :: CWString -> CInt -> CInt -> CInt -> IO CInt
+-- 既存関数(修正版)
+real_len :: CWString -> CInt -> CInt -> CInt -> IO CInt　　
 real_len cws len_c elem1 elem2 = do
-    debugMsg "real_len: 開始"
     result <- (do
         if cws == nullPtr
             then do
-                debugMsg "real_len: NULL pointer"
                 return (-1)
             else do
                 str <- peekCWStringLen (castPtr cws, fromIntegral len_c)
-                debugMsg $ "real_len: 入力=" ++ str ++ ", 長さ=" ++ show (length str)
                 
                 let strNoSpaces = filter (not . isSpace) str
                     idx = fromIntegral elem2 - 1
-                
-                debugMsg $ "real_len: インデックス=" ++ show idx ++ ", 文字列長=" ++ show (length strNoSpaces)
-                
                 case strNoSpaces of
                     [] -> do
-                        debugMsg "real_len: 空文字列"
                         return 0
                     _ -> case safeIndex strNoSpaces idx of
                         Nothing -> do
-                            debugMsg "real_len: 範囲外"
                             return (-1)
                         Just ch -> do
                             let unicodeVal = ord ch
-                            debugMsg $ "real_len: 文字=" ++ [ch] ++ ", Unicode=" ++ show unicodeVal
                             return (fromIntegral unicodeVal)
                         
-        ) `catch` (\e -> do
-            debugMsg $ "real_len: 例外=" ++ show (e :: SomeException)
-            return (-998)
-        )
-    
-    debugMsg $ "real_len: 終了, 結果=" ++ show result
+        ) `catch` (\(_ :: SomeException) -> return (-998))
     return result
 
--- エクスポート
-foreign export ccall real_len :: CWString -> CInt -> CInt -> CInt -> IO CInt
-foreign export ccall real_len_advanced :: CWString -> CInt -> CInt -> CInt -> IO CInt
+isArabicDigit :: Int -> Bool
+isArabicDigit x = x >= 48 && x <= 57  -- Unicode range for '0' to '9'
+
+-- Roman numeral checking function
+isRomanNumeral :: Int -> Bool
+isRomanNumeral x = x `elem` [8544, 8548, 8553, 8556, 8557]  
+-- Corresponds to: Ⅰ(8544), Ⅴ(8548), Ⅹ(8553), Ⅼ(8556), Ⅽ(8557)
+
+-- Get Arabic digit value
+getArabicValue :: Int -> Int
+getArabicValue x
+    | x >= 48 && x <= 57 = x - 48  -- Convert Unicode to actual digit value
+    | otherwise = 0
+
+-- Get Roman numeral value
+getRomanValue :: Int -> Int
+getRomanValue x = case x of
+    8544 -> 1   -- Ⅰ
+    8548 -> 5   -- Ⅴ
+    8553 -> 10  -- Ⅹ
+    8556 -> 50  -- Ⅼ
+    8557 -> 100 -- Ⅽ
+    _ -> 0
+
+
+-- ローマ数字も分岐処理の対象にする修正版
+
+-- 数字の位取り処理を保持しつつ,real_lenとの配列対応を維持する解決策(ローマ数字対応)
+
+-- 文字ごとの値変換(位取りを考慮,ローマ数字の分岐処理対応)
+charToValueWithPosition :: [Int] -> Int -> Int
+charToValueWithPosition allUnicodes pos
+    | pos < 0 || pos >= length allUnicodes = 0
+    | otherwise = 
+        let currentChar = allUnicodes !! pos
+        in if isArabicDigit currentChar
+           then calculateDigitValue allUnicodes pos
+           else if isRomanNumeral currentChar
+           then calculateRomanValue allUnicodes pos
+           else getSingleCharValueSimple currentChar
+
+-- アラビア数字の位取り計算(前後の文字を考慮)
+calculateDigitValue :: [Int] -> Int -> Int
+calculateDigitValue unicodes pos = 
+    let currentChar = unicodes !! pos
+        digitValue = getArabicValue currentChar
+        
+        -- 連続する数字のシーケンスを特定
+        digitSequence = getDigitSequence unicodes pos
+        positionInSequence = pos - fst digitSequence
+        sequenceLength = length (snd digitSequence)
+        
+        -- 位取り計算
+        power = sequenceLength - positionInSequence - 1
+    in digitValue * (10 ^ power)
+
+-- ローマ数字の値計算(パターンマッチングによる分岐処理)
+calculateRomanValue :: [Int] -> Int -> Int
+calculateRomanValue unicodes pos
+    | pos >= length unicodes = 0
+    | otherwise = 
+        let remaining = drop pos unicodes
+        in case checkRomanPattern remaining of
+            Just (value, _) -> value
+            Nothing -> getSingleCharValueSimple (unicodes !! pos)
+
+-- ローマ数字パターンの確認(文書3の表に基づく)
+checkRomanPattern :: [Int] -> Maybe (Int, Int)  -- (値, 消費文字数)
+-- 1. Ⅽ Ⅰ Ͷ → 1000の特殊表記（完全一致チェック）
+checkRomanPattern (8557:8544:390:_) = Just (1000, 3)
+
+-- 2. （≠Ⅽ）Ⅰ Ͷ → 500の特殊表記（第1文字チェック強化）
+checkRomanPattern (x:8544:390:_) 
+  | x /= 8557 && (isArabicDigit x || isInMyDict x || isRomanNumeral x) = Just (500, 3)
+
+-- 3. Ⅰ Ⅼ → 49（減算表記）
+checkRomanPattern (8544:8556:_) = Just (49, 2)
+
+-- 4. Ⅰ Ⅹ → 9（減算表記）
+checkRomanPattern (8544:8553:_) = Just (9, 2)
+
+-- 5. Ⅰ Ⅴ → 4（減算表記）
+checkRomanPattern (8544:8548:_) = Just (4, 2)
+
+-- 6. Ⅹ Ⅼ → 40（減算表記）
+checkRomanPattern (8553:8556:_) = Just (40, 2)
+
+-- 7. Ⅹ Ⅽ → 90（減算表記）
+checkRomanPattern (8553:8557:_) = Just (90, 2)
+
+-- 8-12. 単一ローマ数字
+checkRomanPattern (8544:_) = Just (1, 1)   -- Ⅰ
+checkRomanPattern (8548:_) = Just (5, 1)   -- Ⅴ
+checkRomanPattern (8553:_) = Just (10, 1)  -- Ⅹ
+checkRomanPattern (8556:_) = Just (50, 1)  -- Ⅼ
+checkRomanPattern (8557:_) = Just (100, 1) -- Ⅽ
+
+-- 13. Ͷ → 0（特殊用途）
+checkRomanPattern (390:_) = Just (0, 1)
+
+
+checkRomanPattern _ = Nothing
+
+isInMyDict :: Int -> Bool
+isInMyDict x = case Map.lookup x myDict of
+    Just (Right _) -> True
+    _ -> False
+
+-- ローマ数字パターンの各文字の個別寄与を計算(修正版)
+calculateIndividualRomanValues :: [Int] -> Int -> Int -> [Int]
+calculateIndividualRomanValues chars consumed totalValue = case (chars, consumed, totalValue) of
+    -- 場合1: Ⅽ Ⅰ Ͷ → 1000 の特殊表記
+    (8557:8544:390:_, 3, 1000) -> [0, 1000, 0]
+    
+    -- 場合2: （≠Ⅽ）Ⅰ Ͷ → 500 の特殊表記
+    (first:8544:390:_, 3, 500) -> 
+        let firstCharValue = if isArabicDigit first
+                            then getArabicValue first  -- 0-9の数値をそのまま
+                            else case Map.lookup first myDict of
+                                Just (Right v) -> v
+                                _ -> if isRomanNumeral first then getRomanValue first else 0
+        in [firstCharValue, 500, 0]
+    
+    -- 2文字の減算記法
+    (first:second:_, 2, _) -> 
+        let secondValue = getRomanValue second
+            firstValue = totalValue - secondValue
+        in [firstValue, secondValue]
+    
+    -- その他の3文字パターン（安全処理）
+    (first:second:third:_, 3, _) -> [0, 0, totalValue]
+    
+    -- 単一文字
+    _ -> [totalValue]
+    
+-- 連続数字シーケンスの開始位置と文字列を取得
+getDigitSequence :: [Int] -> Int -> (Int, [Int])
+getDigitSequence unicodes pos = 
+    let -- 後方検索：シーケンスの開始を見つける
+        startPos = findSequenceStart unicodes pos
+        -- 前方検索：シーケンスの終了を見つける  
+        endPos = findSequenceEnd unicodes startPos
+        sequence = take (endPos - startPos + 1) (drop startPos unicodes)
+    in (startPos, sequence)
+
+-- 数字シーケンスの開始位置を見つける
+findSequenceStart :: [Int] -> Int -> Int
+findSequenceStart unicodes pos
+    | pos <= 0 = 0
+    | pos >= length unicodes = pos
+    | isArabicDigit (unicodes !! (pos - 1)) = findSequenceStart unicodes (pos - 1)
+    | otherwise = pos
+
+-- 数字シーケンスの終了位置を見つける
+findSequenceEnd :: [Int] -> Int -> Int
+findSequenceEnd unicodes pos
+    | pos >= length unicodes - 1 = length unicodes - 1
+    | isArabicDigit (unicodes !! (pos + 1)) = findSequenceEnd unicodes (pos + 1)
+    | otherwise = pos
+
+-- 単一文字の値(数字以外)
+getSingleCharValueSimple :: Int -> Int
+getSingleCharValueSimple char
+    | isRomanNumeral char = getRomanValue char
+    | otherwise = case Map.lookup char myDict of
+        Just (Right v) -> v
+        _ -> 0
+
+-- ローマ数字判定の拡張(特殊文字390も含む)
+isRomanNumeralExtended :: Int -> Bool
+isRomanNumeralExtended x = isRomanNumeral x || x == 390
+
+-- real_lenと対応する値解析(位取り処理付き,ローマ数字分岐対応)
+analyzeStringWithPositions :: String -> IO ([Int], [(Int, String)])  -- (値リスト, デバッグ情報)
+analyzeStringWithPositions str = do
+    let strNoSpaces = filter (not . isSpace) str
+        unicodes = map ord strNoSpaces
+        (values, debugInfo) = processWithBranching unicodes
+    return (values, debugInfo)
+
+-- 分岐処理を含む値計算
+processWithBranching :: [Int] -> ([Int], [(Int, String)])
+processWithBranching unicodes = go unicodes 0 [] []
+  where
+    go [] _ values debugInfo = (reverse values, reverse debugInfo)
+    go remaining pos values debugInfo
+        | pos >= length unicodes = (reverse values, reverse debugInfo)
+        | otherwise =
+            let currentChar = unicodes !! pos
+                currentRemaining = drop pos unicodes
+            -- まず3文字パターンをチェック（場合1,2対応）
+            in case checkRomanPattern (take 3 currentRemaining) of
+                Just (value, 3) -> -- 3文字パターンの場合
+                    let consumedChars = take 3 currentRemaining
+                        individualValues = calculateIndividualRomanValues currentRemaining 3 value
+                        debugMsg = "3-char pattern: " ++ show consumedChars ++ " -> " ++ show individualValues
+                        newValues = reverse individualValues ++ values
+                        nextPos = pos + 3
+                    in go (drop 3 remaining) nextPos newValues ((pos, debugMsg) : debugInfo)
+                Just (value, consumed) -> -- 2文字以下のパターン
+                    let consumedChars = take consumed currentRemaining
+                        individualValues = calculateIndividualRomanValues currentRemaining consumed value
+                        debugMsg = "Roman pattern: " ++ show consumedChars ++ " -> " ++ show individualValues
+                        newValues = reverse individualValues ++ values
+                        nextPos = pos + consumed
+                    in go (drop consumed remaining) nextPos newValues ((pos, debugMsg) : debugInfo)
+                Nothing -> -- パターンなし、個別文字処理
+                    if isArabicDigit currentChar
+                    then -- アラビア数字処理
+                        let digitValue = calculateDigitValue unicodes pos
+                            nextPos = pos + 1
+                            debugMsg = "Arabic digit: " ++ show currentChar ++ " -> " ++ show digitValue
+                        in go remaining nextPos (digitValue : values) ((pos, debugMsg) : debugInfo)
+                    else -- 通常文字処理
+                        let charValue = getSingleCharValueSimple currentChar
+                            nextPos = pos + 1
+                            debugMsg = "Other char: " ++ show currentChar ++ " -> " ++ show charValue
+                        in go remaining nextPos (charValue : values) ((pos, debugMsg) : debugInfo)
+
+-- ★ 修正版:real_len_advancedと完全対応する値解析関数
+real_value_new_improved :: CWString -> CInt -> CInt -> CInt -> IO CInt
+real_value_new_improved cws len_c elem1 elem2 = do
+    result <- (do
+        if cws == nullPtr
+            then return (-997)
+            else do
+                str <- peekCWStringLen (castPtr cws, fromIntegral len_c)
+                valueResult <- analyzeStringForValues str
+                let row = fromIntegral elem1
+                    col = fromIntegral elem2
+                
+                -- ★ (0,0) → 全体の合計
+                if row == 0 && col == 0
+                then do
+                    let allValues = concatMap (filter (/= 0)) (valueColumns valueResult)
+                        totalSum = sum allValues
+                    return (fromIntegral totalSum)
+                -- ★ 通常のアクセス：real_len_advancedと同じ行列位置
+                else do
+                    let value = getValueAtPosition valueResult row col
+                    return (fromIntegral value)
+        ) `catch` (\(_ :: SomeException) -> return (-998))
+    return result
+
+
+
