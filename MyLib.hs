@@ -709,6 +709,7 @@ processUnicodesForValues unicodes = go unicodes []
   where
     go [] acc = return $ ValueAnalysisResult (reverse acc) (length acc)
     go xs acc = do
+        -- まず3文字のローマ数字パターンをチェック
         case checkRomanPattern (take 3 xs) of
             Just (totalValue, 3) -> do
                 let patternChars = take 3 xs
@@ -716,28 +717,40 @@ processUnicodesForValues unicodes = go unicodes []
                     individualValues = calculateIndividualRomanValues patternChars 3 totalValue
                     columns = map (\val -> 0 : [val] ++ replicate 4 0) individualValues
                 go remaining (reverse columns ++ acc)
-            _ -> case findLongestPatternSliding allHebrewPatterns xs of
-                Just (pat, pos, seg) -> do
-                    let patLen = tpLength pat
-                        split = tpSplitPoint pat
-                        (firstColChars, nextColChars) = 
-                            if split > 0 && split < patLen
-                            then (take split seg, drop split seg)
-                            else (seg, [])
-                        firstColValues = processSpecialCharsAdvanced unicodes firstColChars pos
-                        firstColumn = 0 : firstColValues ++ replicate (5 - length firstColValues) 0
-                    if null nextColChars
-                    then go (drop (pos + patLen) xs) (firstColumn : acc)
-                    else do
-                        let nextColValues = processSpecialCharsAdvanced unicodes nextColChars (pos + split)
-                            nextColumn = 0 : nextColValues ++ replicate (5 - length nextColValues) 0
-                        go (drop (pos + patLen) xs) (nextColumn : firstColumn : acc)
-                Nothing ->
-                    case xs of
-                        (firstChar:restChars) -> do
-                            let charValue = calculateAdvancedValue unicodes 0 firstChar
-                                singleCharColumn = 0 : [charValue] ++ replicate 4 0
-                            go restChars (singleCharColumn : acc)
+            _ -> 
+                -- 次に2文字のローマ数字パターンをチェック
+                case checkRomanPattern (take 2 xs) of
+                    Just (totalValue, 2) -> do
+                        let patternChars = take 2 xs
+                            remaining = drop 2 xs
+                            individualValues = calculateIndividualRomanValues patternChars 2 totalValue
+                            columns = map (\val -> 0 : [val] ++ replicate 4 0) individualValues
+                        go remaining (reverse columns ++ acc)
+                    _ -> 
+                        -- ヘブライ語パターンをチェック
+                        case findLongestPatternSliding allHebrewPatterns xs of
+                            Just (pat, pos, seg) -> do
+                                let patLen = tpLength pat
+                                    split = tpSplitPoint pat
+                                    (firstColChars, nextColChars) = 
+                                        if split > 0 && split < patLen
+                                        then (take split seg, drop split seg)
+                                        else (seg, [])
+                                    firstColValues = processSpecialCharsAdvanced unicodes firstColChars pos
+                                    firstColumn = 0 : firstColValues ++ replicate (5 - length firstColValues) 0
+                                if null nextColChars
+                                then go (drop (pos + patLen) xs) (firstColumn : acc)
+                                else do
+                                    let nextColValues = processSpecialCharsAdvanced unicodes nextColChars (pos + split)
+                                        nextColumn = 0 : nextColValues ++ replicate (5 - length nextColValues) 0
+                                    go (drop (pos + patLen) xs) (nextColumn : firstColumn : acc)
+                            Nothing ->
+                                -- 個別文字処理
+                                case xs of
+                                    (firstChar:restChars) -> do
+                                        let charValue = calculateAdvancedValue unicodes (length unicodes - length xs) firstChar
+                                            singleCharColumn = 0 : [charValue] ++ replicate 4 0
+                                        go restChars (singleCharColumn : acc)
 
 -- ★ より高度な処理:文字列全体での位取り・パターン計算
 processSpecialCharsAdvanced :: [Int] -> [Int] -> Int -> [Int]
@@ -748,18 +761,20 @@ processSpecialCharsAdvanced allUnicodes chars startPos =
 -- ★ 高度な値計算(位取り・ローマ数字パターン対応)
 calculateAdvancedValue :: [Int] -> Int -> Int -> Int
 calculateAdvancedValue allUnicodes pos char
-    | pos < 0 || pos >= length allUnicodes = 0 -- 範囲外の場合は0
+    | pos < 0 || pos >= length allUnicodes = 0
     | isArabicDigit char = calculateDigitValue allUnicodes pos
     | isRomanNumeralExtended char = 
         let remainingFromPos = drop pos allUnicodes
         in case checkRomanPattern remainingFromPos of
             Just (totalValue, consumed) ->
                 let individualValues = calculateIndividualRomanValues remainingFromPos consumed totalValue
-                in if not (null individualValues) && (pos - findSequenceStart allUnicodes pos) < length individualValues
-                   then individualValues !! (pos - findSequenceStart allUnicodes pos)
+                    sequenceStart = findRomanSequenceStart allUnicodes pos
+                    indexInSequence = pos - sequenceStart
+                in if indexInSequence >= 0 && indexInSequence < length individualValues
+                   then individualValues !! indexInSequence
                    else getCharValue char 
             Nothing -> getCharValue char
-    | otherwise = getCharValue char 
+    | otherwise = getCharValue char
 
 isArabicDigit :: Int -> Bool
 isArabicDigit x = x >= 48 && x <= 57  -- Unicode range for '0' to '9'
@@ -805,12 +820,16 @@ calculateDigitValue unicodes pos =
         
         -- 連続する数字のシーケンスを特定
         digitSequence = getDigitSequence unicodes pos
-        positionInSequence = pos - fst digitSequence
-        sequenceLength = length (snd digitSequence)
+        startPos = fst digitSequence
+        sequence = snd digitSequence
+        positionInSequence = pos - startPos
+        sequenceLength = length sequence
         
-        -- 位取り計算
+        -- 位取り計算 - 右から左へ
         power = sequenceLength - positionInSequence - 1
-    in digitValue * (10 ^ power)
+    in if power >= 0 && positionInSequence >= 0 && positionInSequence < sequenceLength
+       then digitValue * (10 ^ power)
+       else digitValue
 
 -- ローマ数字の値計算(パターンマッチングによる分岐処理)
 calculateRomanValue :: [Int] -> Int -> Int
@@ -872,23 +891,30 @@ calculateIndividualRomanValues chars consumed totalValue = case (chars, consumed
     -- 場合2: （≠Ⅽ）Ⅰ Ɔ  → 500 の特殊表記
     (first:8544:390:_, 3, 500) -> 
         let firstCharValue = if isArabicDigit first
-                            then getArabicValue first  -- 0-9の数値をそのまま
+                            then getArabicValue first
                             else case Map.lookup first myDict of
                                 Just (Right v) -> v
                                 _ -> if isRomanNumeral first then getRomanValue first else 0
         in [firstCharValue, 500, 0]
     
-    -- 2文字の減算記法
+    -- 2文字の減算記法 - 修正版
     (first:second:_, 2, _) -> 
-        let secondValue = getRomanValue second
-            firstValue = totalValue - secondValue
-        in [firstValue, secondValue]
+        let firstValue = getRomanValue first
+            secondValue = getRomanValue second
+        in case (first, second) of
+            (8544, 8556) -> [-1, 50]   -- Ⅰ Ⅼ → 49 = -1 + 50
+            (8544, 8553) -> [-1, 10]   -- Ⅰ Ⅹ → 9 = -1 + 10  
+            (8544, 8548) -> [-1, 5]    -- Ⅰ Ⅴ → 4 = -1 + 5
+            (8553, 8556) -> [-10, 50]  -- Ⅹ Ⅼ → 40 = -10 + 50
+            (8553, 8557) -> [-10, 100] -- Ⅹ Ⅽ → 90 = -10 + 100
+            _ -> [firstValue, secondValue]
     
-    -- その他の3文字パターン（安全処理）
+    -- その他の3文字パターン
     (first:second:third:_, 3, _) -> [0, 0, totalValue]
     
     -- 単一文字
     _ -> [totalValue]
+
     
 -- 連続数字シーケンスの開始位置と文字列を取得
 getDigitSequence :: [Int] -> Int -> (Int, [Int])
@@ -899,6 +925,17 @@ getDigitSequence unicodes pos =
         endPos = findSequenceEnd unicodes startPos
         sequence = take (endPos - startPos + 1) (drop startPos unicodes)
     in (startPos, sequence)
+
+findRomanSequenceStart :: [Int] -> Int -> Int
+findRomanSequenceStart allUnicodes pos
+    | pos <= 0 = 0
+    | pos >= length allUnicodes = pos
+    | otherwise = 
+        let checkPos = pos - 1
+        in case drop checkPos allUnicodes of
+            (x:y:z:_) | checkRomanPattern [x,y,z] /= Nothing -> checkPos
+            (x:y:_) | checkRomanPattern [x,y] /= Nothing -> checkPos
+            _ -> pos
 
 -- 数字シーケンスの開始位置を見つける
 findSequenceStart :: [Int] -> Int -> Int
