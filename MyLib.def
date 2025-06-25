@@ -4,10 +4,7 @@ EXPORTS
     real_len_wrapper_wstr  
     real_len_advanced_wrapper
     real_value_new_wrapper
-    real_value_new_wrapper_bstr
-    test_func
     initialize_haskell
-    health_check
     real_len
     real_len_advanced
     real_value_new_improved

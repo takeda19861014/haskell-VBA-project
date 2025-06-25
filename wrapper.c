@@ -133,7 +133,7 @@ extern "C" {
         return real_len_advanced(s, len_c, elem1, elem2);
     }
 
-    // ★新しいreal_value_new_wrapper（値取得版）
+    // ★real_value_new_wrapper（値取得版）
     __declspec(dllexport) HsInt32 __stdcall real_value_new_wrapper(const wchar_t* s, HsInt32 len_c, HsInt32 elem1, HsInt32 elem2) {
         if (!ensure_hs_initialized()) {
             OutputDebugStringA("real_value_new_wrapper: Haskellランタイム初期化失敗\n");
@@ -153,46 +153,10 @@ extern "C" {
 
         return real_value_new_improved(s, len_c, elem1, elem2);
     }
-
-    // ★新しいreal_value_new_wrapper_bstr（BSTR版）
-    __declspec(dllexport) HsInt32 __stdcall real_value_new_wrapper_bstr(BSTR s, HsInt32 elem1, HsInt32 elem2) {
-        if (!ensure_hs_initialized()) {
-            OutputDebugStringA("real_value_new_wrapper_bstr: Haskellランタイム初期化失敗\n");
-            return -999;
-        }
-
-        OutputDebugStringA("real_value_new_wrapper_bstr: 関数が呼ばれました\n");
-
-        if (s == NULL) {
-            OutputDebugStringA("real_value_new_wrapper_bstr: BSTRがNULLです\n");
-            return -1;
-        }
-
-        UINT len = SysStringLen(s);
-        char debug_msg[256];
-        sprintf_s(debug_msg, sizeof(debug_msg), "real_value_new_wrapper_bstr: BSTRポインタ=0x%p, 長さ=%u, elem1=%d, elem2=%d\n", (void*)s, len, elem1, elem2);
-        OutputDebugStringA(debug_msg);
-
-        return real_value_new_improved((const wchar_t*)s, (HsInt32)len, elem1, elem2);
-    }
-
-    // 既存のユーティリティ関数
-    __declspec(dllexport) int __stdcall test_func() {
-        if (!ensure_hs_initialized()) {
-            return -999;
-        }
-        OutputDebugStringA("test_func: called\n");
-        return 42;
-    }
-
+    
     __declspec(dllexport) int __stdcall initialize_haskell() {
         return ensure_hs_initialized() ? 1 : 0;
     }
-
-    __declspec(dllexport) int __stdcall health_check() {
-        return g_hs_initialized ? 1 : 0;
-    }
-
 #ifdef __cplusplus
 }
 #endif
