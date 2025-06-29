@@ -310,7 +310,7 @@ isShinDotMark x = x == 1473 || x == 1474
 isYodSegolOrDagesh :: Int -> Bool
 isYodSegolOrDagesh x = x `elem` [1497, 1466, 1468]
 
--- 主要な母音記号＋ヴァヴ判定
+-- 主要な母音記号+ヴァヴ判定
 isMainVowelOrVav :: Int -> Bool
 isMainVowelOrVav x = x `elem` [1460, 1461, 1462, 1463, 1464, 1465, 1493]
 
@@ -521,15 +521,6 @@ processUnicodesInBatches unicodes batchSize = do
     chunksOf _ [] = []
     chunksOf n xs = take n xs : chunksOf n (drop n xs)
 
--- 文字列解析(スライディングウィンドウ版)
-analyzeStringAdvanced :: String -> Int -> IO AnalysisResult
-analyzeStringAdvanced str batchSize = do
-    let strNoSpaces = filter (not . isSpace) str
-        unicodes = map ord strNoSpaces
-    if length unicodes > batchSize
-        then processUnicodesInBatches unicodes batchSize
-        else processUnicodesWithPatternMatching unicodes
-
 -- 解析結果データ型
 data AnalysisResult = AnalysisResult
     { columns :: [[Int]]
@@ -735,7 +726,7 @@ processUnicodesForValues unicodes = go unicodes []
                                             singleCharColumn = 0 : [charValue] ++ replicate 4 0
                                         go restChars (singleCharColumn : acc)
 
--- ヘルパー関数：リスト内での要素のインデックスを取得
+-- ヘルパー関数:リスト内での要素のインデックスを取得
 elemIndex' :: Eq a => a -> [a] -> Int
 elemIndex' x xs = case elemIndex x xs of
     Just i -> i
@@ -916,17 +907,6 @@ getDigitSequence unicodes pos =
         sequence = take (endPos - startPos + 1) (drop startPos unicodes)
     in (startPos, sequence)
 
-findRomanSequenceStart :: [Int] -> Int -> Int
-findRomanSequenceStart allUnicodes pos
-    | pos <= 0 = 0
-    | pos >= length allUnicodes = pos
-    | otherwise = 
-        let checkPos = pos - 1
-        in case drop checkPos allUnicodes of
-            (x:y:z:_) | checkRomanPattern [x,y,z] /= Nothing -> checkPos
-            (x:y:_) | checkRomanPattern [x,y] /= Nothing -> checkPos
-            _ -> pos
-
 -- 数字シーケンスの開始位置を見つける
 findSequenceStart :: [Int] -> Int -> Int
 findSequenceStart unicodes pos
@@ -949,57 +929,6 @@ getSingleCharValueSimple char
     | otherwise = case Map.lookup char myDict of
         Just (Right v) -> v
         _ -> 0
-
--- ローマ数字判定の拡張(特殊文字390も含む)
-isRomanNumeralExtended :: Int -> Bool
-isRomanNumeralExtended x = isRomanNumeral x || x == 390
-
--- real_lenと対応する値解析(位取り処理付き,ローマ数字分岐対応)
-analyzeStringWithPositions :: String -> IO ([Int], [(Int, String)])  -- (値リスト, デバッグ情報)
-analyzeStringWithPositions str = do
-    let strNoSpaces = filter (not . isSpace) str
-        unicodes = map ord strNoSpaces
-        (values, debugInfo) = processWithBranching unicodes
-    return (values, debugInfo)
-
--- 分岐処理を含む値計算
-processWithBranching :: [Int] -> ([Int], [(Int, String)])
-processWithBranching unicodes = go unicodes 0 [] []
-  where
-    go [] _ values debugInfo = (reverse values, reverse debugInfo)
-    go remaining pos values debugInfo
-        | pos >= length unicodes = (reverse values, reverse debugInfo)
-        | otherwise =
-            let currentChar = unicodes !! pos
-                currentRemaining = drop pos unicodes
-            -- まず3文字パターンをチェック（場合1,2対応）
-            in case checkRomanPattern (take 3 currentRemaining) of
-                Just (value, 3) -> -- 3文字パターンの場合
-                    let consumedChars = take 3 currentRemaining
-                        individualValues = calculateIndividualRomanValues currentRemaining 3 value
-                        debugMsg = "3-char pattern: " ++ show consumedChars ++ " -> " ++ show individualValues
-                        newValues = reverse individualValues ++ values
-                        nextPos = pos + 3
-                    in go (drop 3 remaining) nextPos newValues ((pos, debugMsg) : debugInfo)
-                Just (value, consumed) -> -- 2文字以下のパターン
-                    let consumedChars = take consumed currentRemaining
-                        individualValues = calculateIndividualRomanValues currentRemaining consumed value
-                        debugMsg = "Roman pattern: " ++ show consumedChars ++ " -> " ++ show individualValues
-                        newValues = reverse individualValues ++ values
-                        nextPos = pos + consumed
-                    in go (drop consumed remaining) nextPos newValues ((pos, debugMsg) : debugInfo)
-                Nothing -> -- パターンなし、個別文字処理
-                    if isArabicDigit currentChar
-                    then -- アラビア数字処理
-                        let digitValue = calculateDigitValue unicodes pos
-                            nextPos = pos + 1
-                            debugMsg = "Arabic digit: " ++ show currentChar ++ " -> " ++ show digitValue
-                        in go remaining nextPos (digitValue : values) ((pos, debugMsg) : debugInfo)
-                    else -- 通常文字処理
-                        let charValue = getSingleCharValueSimple currentChar
-                            nextPos = pos + 1
-                            debugMsg = "Other char: " ++ show currentChar ++ " -> " ++ show charValue
-                        in go remaining nextPos (charValue : values) ((pos, debugMsg) : debugInfo)
 
 -- ★ 修正版:real_len_advancedと完全対応する値解析関数
 real_value_new_improved :: CWString -> CInt -> CInt -> CInt -> IO CInt
