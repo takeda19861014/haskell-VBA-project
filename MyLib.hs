@@ -281,120 +281,81 @@ myDict = Map.fromList [
   ]
 
 -- ヘブライ語文字種判定(より安全に・通番関数で再定義)
--- 1. x = 1460
-isCode1460 :: Int -> Bool
-isCode1460 x = x == 1460
 
--- 2. x = 1461
-isCode1461 :: Int -> Bool
-isCode1461 x = x == 1461
+-- ヘブライ語の子音判定
+isHebrewConsonant :: Int -> Bool
+isHebrewConsonant x = x `elem` hebrewConsonants
+  where
+    hebrewConsonants =
+      [1488,1489,1490,1491,1492,1493,1494,1495,1496,1497,
+       1498,1499,1500,1501,1502,1503,1504,1505,1506,1507,
+       1508,1509,1510,1511,1512,1514]
 
--- 3. x = 1462
-isCode1462 :: Int -> Bool
-isCode1462 x = x == 1462
+-- ヘブライ語の母音記号（ニクード）判定
+isHebrewVowelMark :: Int -> Bool
+isHebrewVowelMark x = x `elem` hebrewVowelMarks
+  where
+    hebrewVowelMarks =
+      [1456,1457,1458,1459,1460,1461,1462,1463,1464,1465,1467]
 
--- 4. x = 1463
-isCode1463 :: Int -> Bool
-isCode1463 x = x == 1463
+-- シン（ש, 1513）判定
+isShinLetter :: Int -> Bool
+isShinLetter x = x == 1513
 
--- 5. x = 1464
-isCode1464 :: Int -> Bool
-isCode1464 x = x == 1464
+-- シン・ドット（שׁ: 1473, שׂ: 1474）判定
+isShinDotMark :: Int -> Bool
+isShinDotMark x = x == 1473 || x == 1474
 
--- 6. x = 1465
-isCode1465 :: Int -> Bool
-isCode1465 x = x == 1465
+-- ヨッド, セゴル, ダゲシュ判定
+isYodSegolOrDagesh :: Int -> Bool
+isYodSegolOrDagesh x = x `elem` [1497, 1466, 1468]
 
--- 7. x = 1466
-isCode1466 :: Int -> Bool
-isCode1466 x = x == 1466
+-- 主要な母音記号＋ヴァヴ判定
+isMainVowelOrVav :: Int -> Bool
+isMainVowelOrVav x = x `elem` [1460, 1461, 1462, 1463, 1464, 1465, 1493]
 
--- 8. x = 1468（ダゲシュ）
-isDagesh :: Int -> Bool
-isDagesh x = x == 1468
+-- セゴル, ダゲシュ, アレフ, ベート, ヨッド判定
+isSegolDageshAlefBetYod :: Int -> Bool
+isSegolDageshAlefBetYod x = x `elem` [1466, 1468, 1488, 1492, 1497]
 
--- 9. x = 1488（アレフ）
-isAleph :: Int -> Bool
-isAleph x = x == 1488
+-- パタフ, カマツ, ヴァヴ判定
+isPatahQamatsOrVav :: Int -> Bool
+isPatahQamatsOrVav x = x `elem` [1463, 1464, 1493]
 
--- 10. x = 1493（ヴァヴ）
-isVav :: Int -> Bool
-isVav x = x == 1493
+-- セゴル, ダゲシュ, アレフ, ヨッド判定
+isSegolDageshAlefYod :: Int -> Bool
+isSegolDageshAlefYod x = x `elem` [1466, 1468, 1488, 1497]
 
--- 11. x = 1497（ヨッド）
+-- ヴァヴ, ヨッド判定
+isVavOrYod :: Int -> Bool
+isVavOrYod x = x `elem` [1493, 1497]
+
+isHiriqTzereOrVav :: Int -> Bool
+isHiriqTzereOrVav x = x `elem` [1460, 1461, 1493]
+
+isMainLetterVavYodAlef :: Int -> Bool
+isMainLetterVavYodAlef x =
+    (1425 <= x && x <= 1455) ||
+    (1456 <= x && x <= 1467) ||
+    x == 1468 ||
+    x == 1469 ||
+    x == 1493
+
+isHiriqOrTzere :: Int -> Bool
+isHiriqOrTzere x = x == 1460 || x == 1461
+
 isYod :: Int -> Bool
 isYod x = x == 1497
 
--- 12. x ≠ 1497
-isNotYod :: Int -> Bool
-isNotYod x = x /= 1497
+isAlefOrYod :: Int -> Bool
+isAlefOrYod x = x == 1488 || x == 1497
 
--- 13. 1487 < x < 1523（ヘブライ語主文字範囲）
-isHebrewMain :: Int -> Bool
-isHebrewMain x = x > 1487 && x < 1523
+isDagesh :: Int -> Bool
+isDagesh x = x == 1468
 
--- 14. x = 1488 or x = 1492（アレフまたはベート）
-isAlephOrBet :: Int -> Bool
-isAlephOrBet x = x == 1488 || x == 1492
+isCantillation :: Int -> Bool
+isCantillation x = (1425 <= x && x <= 1455) || (x == 1469)
 
--- 15. x ≠ 1488 and x ≠ 1492
-isNotAlephAndNotBet :: Int -> Bool
-isNotAlephAndNotBet x = x /= 1488 && x /= 1492
-
--- 16. x ≠ 1488 and x ≠ 1497
-isNotAlephAndNotYod :: Int -> Bool
-isNotAlephAndNotYod x = x /= 1488 && x /= 1497
-
--- 17. x ≠ 1488 and x ≠ 1492 and x ≠ 1497
-isNotAlephBetYod :: Int -> Bool
-isNotAlephBetYod x = x /= 1488 && x /= 1492 && x /= 1497
-
--- 18. x = 1488 or x = 1492 or x = 1497
-isAlephOrBetOrYod :: Int -> Bool
-isAlephOrBetOrYod x = x == 1488 || x == 1492 || x == 1497
-
--- 19. x ≠ 1471 and x ≠ 1473 and x ≠ 1474 and x ≠ 1479
-isNotSpecialMarks :: Int -> Bool
-isNotSpecialMarks x = not (x `elem` [1471, 1473, 1474, 1479])
-
--- 20. (x < 1425 or x > 1469) and (x ≠ 1471 and x ≠ 1473 and x ≠ 1474 and x ≠ 1479)
-isOutsideBibleAndNotSpecial :: Int -> Bool
-isOutsideBibleAndNotSpecial x =
-  (x < 1425 || x > 1469) && isNotSpecialMarks x
-
--- 21. (1425 ≤ x ≤ 1469) or (x = 1471 or x = 1473 or x = 1474 or x = 1479)
-isBibleOrSpecialMarks :: Int -> Bool
-isBibleOrSpecialMarks x =
-  (x >= 1425 && x <= 1469) || (x `elem` [1471, 1473, 1474, 1479])
-
--- 22. (1455 < x < 1460) or x = 1467 or x = 1479（母音記号など）
-isVowelEtc :: Int -> Bool
-isVowelEtc x =
-  (x > 1455 && x < 1460) || x == 1467 || x == 1479
-
--- 23. 1424 < x < 1456 or x = 1469（聖書記号など）
-isBiblePoint :: Int -> Bool
-isBiblePoint x =
-  (x > 1424 && x < 1456) || x == 1469
-
--- 24. (x ≠ 1471 and x ≠ 1473 and x ≠ 1474 and x ≠ 1479) and (x ≠ 1493)
-isNotSpecialMarksAndNotVav :: Int -> Bool
-isNotSpecialMarksAndNotVav x =
-  isNotSpecialMarks x && x /= 1493 
-
--- 25. (x < 1425 or x > 1469) and (x ≠ 1471 and x ≠ 1473 and x ≠ 1474 and x ≠ 1479 and x ≠ 1497)
-isOutsideBibleAndNotSpecialAndNotYod :: Int -> Bool
-isOutsideBibleAndNotSpecialAndNotYod x =
-  (x < 1425 || x > 1469) && not (x `elem` [1471, 1473, 1474, 1479, 1497])
-
---以下,ヘブライ語以外
--- 26
-isCode547 :: Int -> Bool
-isCode547 x = x == 547
-
--- 27
-isCode771 :: Int -> Bool
-isCode771 x = x == 771
 
 -- Hebrew用のパターン定義
 data HebrewPattern = HebrewPattern
@@ -406,181 +367,168 @@ data HebrewPattern = HebrewPattern
 
 allHebrewPatterns :: [HebrewPattern]
 allHebrewPatterns = [
-     HebrewPattern "7char_test_pattern" 7 [isHebrewMain, isDagesh, isBiblePoint, isCode1463, isAleph, isYod, isOutsideBibleAndNotSpecialAndNotYod] 6, 
-     HebrewPattern "7char_test_pattern" 7 [isHebrewMain, isDagesh, isBiblePoint, isCode1464, isYod, isVav, isNotSpecialMarks] 6, 
-     HebrewPattern "7char_test_pattern" 7 [isHebrewMain, isDagesh, isBiblePoint, isCode1463, isAleph, isYod, isBibleOrSpecialMarks] 5, 
-     HebrewPattern "7char_test_pattern" 7 [isHebrewMain, isDagesh, isBiblePoint, isCode1464, isYod, isVav, isBibleOrSpecialMarks] 5, 
-     HebrewPattern "7char_test_pattern" 7 [isHebrewMain, isDagesh, isBiblePoint, isVav, isCode1466, isOutsideBibleAndNotSpecial, isBibleOrSpecialMarks] 5, 
-     HebrewPattern "7char_test_pattern" 7 [isHebrewMain, isDagesh, isBiblePoint, isVav, isDagesh, isOutsideBibleAndNotSpecial, isBibleOrSpecialMarks] 5, 
-     HebrewPattern "6char_test_pattern" 6 [isHebrewMain, isDagesh, isBiblePoint, isVav, isCode1466, isOutsideBibleAndNotSpecial] 6, 
-     HebrewPattern "6char_test_pattern" 6 [isHebrewMain, isDagesh, isBiblePoint, isVav, isDagesh, isOutsideBibleAndNotSpecial] 6, 
-     HebrewPattern "6char_test_pattern" 6 [isHebrewMain, isDagesh, isBiblePoint, isCode1460, isYod, isOutsideBibleAndNotSpecialAndNotYod] 5, 
-     HebrewPattern "6char_test_pattern" 6 [isHebrewMain, isDagesh, isBiblePoint, isCode1461, isAlephOrBetOrYod, isOutsideBibleAndNotSpecialAndNotYod] 5, 
-     HebrewPattern "6char_test_pattern" 6 [isHebrewMain, isDagesh, isBiblePoint, isCode1462, isAlephOrBet, isOutsideBibleAndNotSpecialAndNotYod] 5, 
-     HebrewPattern "6char_test_pattern" 6 [isHebrewMain, isDagesh, isBiblePoint, isCode1463, isYod, isOutsideBibleAndNotSpecialAndNotYod] 5, 
-     HebrewPattern "6char_test_pattern" 6 [isHebrewMain, isDagesh, isBiblePoint, isCode1464, isAlephOrBet, isOutsideBibleAndNotSpecialAndNotYod] 5, 
-     HebrewPattern "6char_test_pattern" 6 [isHebrewMain, isDagesh, isBiblePoint, isCode1464, isYod, isNotSpecialMarksAndNotVav] 5, 
-     HebrewPattern "6char_test_pattern" 6 [isHebrewMain, isDagesh, isBiblePoint, isCode1465, isAlephOrBet, isNotSpecialMarks] 5, 
-     HebrewPattern "6char_test_pattern" 6 [isHebrewMain, isDagesh, isCode1463, isAleph, isYod, isOutsideBibleAndNotSpecialAndNotYod] 5, 
-     HebrewPattern "6char_test_pattern" 6 [isHebrewMain, isDagesh, isCode1464, isYod, isVav, isNotSpecialMarks] 5, 
-     HebrewPattern "6char_test_pattern" 6 [isHebrewMain, isBiblePoint, isCode1463, isAleph, isYod, isOutsideBibleAndNotSpecialAndNotYod] 5, 
-     HebrewPattern "6char_test_pattern" 6 [isHebrewMain, isBiblePoint, isCode1464, isYod, isVav, isNotSpecialMarks] 5, 
-     HebrewPattern "6char_test_pattern" 6 [isHebrewMain, isDagesh, isBiblePoint, isCode1460, isYod, isBibleOrSpecialMarks] 4, 
-     HebrewPattern "6char_test_pattern" 6 [isHebrewMain, isDagesh, isBiblePoint, isCode1461, isAlephOrBetOrYod, isBibleOrSpecialMarks] 4, 
-     HebrewPattern "6char_test_pattern" 6 [isHebrewMain, isDagesh, isBiblePoint, isCode1462, isAlephOrBet, isBibleOrSpecialMarks] 4, 
-     HebrewPattern "6char_test_pattern" 6 [isHebrewMain, isDagesh, isBiblePoint, isCode1463, isYod, isBibleOrSpecialMarks] 4, 
-     HebrewPattern "6char_test_pattern" 6 [isHebrewMain, isDagesh, isBiblePoint, isCode1464, isAlephOrBet, isBibleOrSpecialMarks] 4, 
-     HebrewPattern "6char_test_pattern" 6 [isHebrewMain, isDagesh, isBiblePoint, isCode1464, isYod, isBibleOrSpecialMarks] 4, 
-     HebrewPattern "6char_test_pattern" 6 [isHebrewMain, isDagesh, isBiblePoint, isCode1465, isAlephOrBet, isBibleOrSpecialMarks] 4, 
-     HebrewPattern "6char_test_pattern" 6 [isHebrewMain, isDagesh, isCode1463, isAleph, isYod, isBibleOrSpecialMarks] 4, 
-     HebrewPattern "6char_test_pattern" 6 [isHebrewMain, isDagesh, isCode1464, isYod, isVav, isBibleOrSpecialMarks] 4, 
-     HebrewPattern "6char_test_pattern" 6 [isHebrewMain, isDagesh, isVav, isCode1466, isOutsideBibleAndNotSpecial, isBibleOrSpecialMarks] 4, 
-     HebrewPattern "6char_test_pattern" 6 [isHebrewMain, isDagesh, isVav, isDagesh, isOutsideBibleAndNotSpecial, isBibleOrSpecialMarks] 4, 
-     HebrewPattern "6char_test_pattern" 6 [isHebrewMain, isBiblePoint, isCode1463, isAleph, isYod, isBibleOrSpecialMarks] 4, 
-     HebrewPattern "6char_test_pattern" 6 [isHebrewMain, isBiblePoint, isCode1464, isYod, isVav, isBibleOrSpecialMarks] 4, 
-     HebrewPattern "6char_test_pattern" 6 [isHebrewMain, isBiblePoint, isVav, isCode1466, isOutsideBibleAndNotSpecial, isBibleOrSpecialMarks] 4, 
-     HebrewPattern "6char_test_pattern" 6 [isHebrewMain, isBiblePoint, isVav, isDagesh, isOutsideBibleAndNotSpecial, isBibleOrSpecialMarks] 4, 
-     HebrewPattern "5char_test_pattern" 5 [isHebrewMain, isDagesh, isVav, isCode1466, isOutsideBibleAndNotSpecial] 5, 
-     HebrewPattern "5char_test_pattern" 5 [isHebrewMain, isDagesh, isVav, isDagesh, isOutsideBibleAndNotSpecial] 5, 
-     HebrewPattern "5char_test_pattern" 5 [isHebrewMain, isBiblePoint, isVav, isCode1466, isOutsideBibleAndNotSpecial] 5, 
-     HebrewPattern "5char_test_pattern" 5 [isHebrewMain, isBiblePoint, isVav, isDagesh, isOutsideBibleAndNotSpecial] 5, 
-     HebrewPattern "5char_test_pattern" 5 [isHebrewMain, isDagesh, isBiblePoint, isCode1460, isNotYod] 4, 
-     HebrewPattern "5char_test_pattern" 5 [isHebrewMain, isDagesh, isBiblePoint, isCode1461, isNotAlephBetYod] 4, 
-     HebrewPattern "5char_test_pattern" 5 [isHebrewMain, isDagesh, isBiblePoint, isCode1462, isNotAlephAndNotBet] 4, 
-     HebrewPattern "5char_test_pattern" 5 [isHebrewMain, isDagesh, isBiblePoint, isCode1463, isNotAlephAndNotYod] 4, 
-     HebrewPattern "5char_test_pattern" 5 [isHebrewMain, isDagesh, isBiblePoint, isCode1464, isNotAlephAndNotBet] 4, 
-     HebrewPattern "5char_test_pattern" 5 [isHebrewMain, isDagesh, isBiblePoint, isCode1465, isNotAlephAndNotBet] 4, 
-     HebrewPattern "5char_test_pattern" 5 [isHebrewMain, isDagesh, isBiblePoint, isVav, isCode1466] 4, 
-     HebrewPattern "5char_test_pattern" 5 [isHebrewMain, isDagesh, isBiblePoint, isVav, isDagesh] 4, 
-     HebrewPattern "5char_test_pattern" 5 [isHebrewMain, isDagesh, isCode1460, isYod, isOutsideBibleAndNotSpecialAndNotYod] 4, 
-     HebrewPattern "5char_test_pattern" 5 [isHebrewMain, isDagesh, isCode1461, isAlephOrBetOrYod, isOutsideBibleAndNotSpecialAndNotYod] 4, 
-     HebrewPattern "5char_test_pattern" 5 [isHebrewMain, isDagesh, isCode1462, isAlephOrBet, isOutsideBibleAndNotSpecialAndNotYod] 4, 
-     HebrewPattern "5char_test_pattern" 5 [isHebrewMain, isDagesh, isCode1463, isYod, isOutsideBibleAndNotSpecialAndNotYod] 4, 
-     HebrewPattern "5char_test_pattern" 5 [isHebrewMain, isDagesh, isCode1464, isAlephOrBet, isOutsideBibleAndNotSpecialAndNotYod] 4, 
-     HebrewPattern "5char_test_pattern" 5 [isHebrewMain, isDagesh, isCode1464, isYod, isNotSpecialMarksAndNotVav] 4, 
-     HebrewPattern "5char_test_pattern" 5 [isHebrewMain, isDagesh, isCode1465, isAlephOrBet, isNotSpecialMarks] 4, 
-     HebrewPattern "5char_test_pattern" 5 [isHebrewMain, isBiblePoint, isCode1460, isYod, isOutsideBibleAndNotSpecialAndNotYod] 4, 
-     HebrewPattern "5char_test_pattern" 5 [isHebrewMain, isBiblePoint, isCode1461, isAlephOrBetOrYod, isOutsideBibleAndNotSpecialAndNotYod] 4, 
-     HebrewPattern "5char_test_pattern" 5 [isHebrewMain, isBiblePoint, isCode1462, isAlephOrBet, isOutsideBibleAndNotSpecialAndNotYod] 4, 
-     HebrewPattern "5char_test_pattern" 5 [isHebrewMain, isBiblePoint, isCode1463, isYod, isOutsideBibleAndNotSpecialAndNotYod] 4, 
-     HebrewPattern "5char_test_pattern" 5 [isHebrewMain, isBiblePoint, isCode1464, isAlephOrBet, isOutsideBibleAndNotSpecialAndNotYod] 4, 
-     HebrewPattern "5char_test_pattern" 5 [isHebrewMain, isBiblePoint, isCode1464, isYod, isNotSpecialMarksAndNotVav] 4, 
-     HebrewPattern "5char_test_pattern" 5 [isHebrewMain, isBiblePoint, isCode1465, isAlephOrBet, isNotSpecialMarks] 4, 
-     HebrewPattern "5char_test_pattern" 5 [isHebrewMain, isCode1463, isAleph, isYod, isOutsideBibleAndNotSpecialAndNotYod] 4, 
-     HebrewPattern "5char_test_pattern" 5 [isHebrewMain, isCode1464, isYod, isVav, isNotSpecialMarks] 4, 
-     HebrewPattern "5char_test_pattern" 5 [isHebrewMain, isDagesh, isCode1460, isYod, isBibleOrSpecialMarks] 3, 
-     HebrewPattern "5char_test_pattern" 5 [isHebrewMain, isDagesh, isCode1461, isAlephOrBetOrYod, isBibleOrSpecialMarks] 3, 
-     HebrewPattern "5char_test_pattern" 5 [isHebrewMain, isDagesh, isCode1462, isAlephOrBet, isBibleOrSpecialMarks] 3, 
-     HebrewPattern "5char_test_pattern" 5 [isHebrewMain, isDagesh, isCode1463, isYod, isBibleOrSpecialMarks] 3, 
-     HebrewPattern "5char_test_pattern" 5 [isHebrewMain, isDagesh, isCode1464, isAlephOrBet, isBibleOrSpecialMarks] 3, 
-     HebrewPattern "5char_test_pattern" 5 [isHebrewMain, isDagesh, isCode1464, isYod, isBibleOrSpecialMarks] 3, 
-     HebrewPattern "5char_test_pattern" 5 [isHebrewMain, isDagesh, isCode1465, isAlephOrBet, isBibleOrSpecialMarks] 3, 
-     HebrewPattern "5char_test_pattern" 5 [isHebrewMain, isBiblePoint, isCode1460, isYod, isBibleOrSpecialMarks] 3, 
-     HebrewPattern "5char_test_pattern" 5 [isHebrewMain, isBiblePoint, isCode1461, isAlephOrBetOrYod, isBibleOrSpecialMarks] 3, 
-     HebrewPattern "5char_test_pattern" 5 [isHebrewMain, isBiblePoint, isCode1462, isAlephOrBet, isBibleOrSpecialMarks] 3, 
-     HebrewPattern "5char_test_pattern" 5 [isHebrewMain, isBiblePoint, isCode1463, isYod, isBibleOrSpecialMarks] 3, 
-     HebrewPattern "5char_test_pattern" 5 [isHebrewMain, isBiblePoint, isCode1464, isAlephOrBet, isBibleOrSpecialMarks] 3, 
-     HebrewPattern "5char_test_pattern" 5 [isHebrewMain, isBiblePoint, isCode1464, isYod, isBibleOrSpecialMarks] 3, 
-     HebrewPattern "5char_test_pattern" 5 [isHebrewMain, isBiblePoint, isCode1465, isAlephOrBet, isBibleOrSpecialMarks] 3, 
-     HebrewPattern "5char_test_pattern" 5 [isHebrewMain, isCode1463, isAleph, isYod, isBibleOrSpecialMarks] 3, 
-     HebrewPattern "5char_test_pattern" 5 [isHebrewMain, isCode1464, isYod, isVav, isBibleOrSpecialMarks] 3, 
-     HebrewPattern "5char_test_pattern" 5 [isHebrewMain, isVav, isCode1466, isOutsideBibleAndNotSpecial, isBibleOrSpecialMarks] 3, 
-     HebrewPattern "5char_test_pattern" 5 [isHebrewMain, isVav, isDagesh, isOutsideBibleAndNotSpecial, isBibleOrSpecialMarks] 3, 
-     HebrewPattern "4char_test_pattern" 4 [isHebrewMain, isDagesh, isBiblePoint, isVowelEtc] 4, 
-     HebrewPattern "4char_test_pattern" 4 [isHebrewMain, isVav, isCode1466, isOutsideBibleAndNotSpecial] 4, 
-     HebrewPattern "4char_test_pattern" 4 [isHebrewMain, isVav, isDagesh, isOutsideBibleAndNotSpecial] 4, 
-     HebrewPattern "4char_test_pattern" 4 [isHebrewMain, isDagesh, isCode1460, isNotYod] 3, 
-     HebrewPattern "4char_test_pattern" 4 [isHebrewMain, isDagesh, isCode1461, isNotAlephBetYod] 3, 
-     HebrewPattern "4char_test_pattern" 4 [isHebrewMain, isDagesh, isCode1462, isNotAlephAndNotBet] 3, 
-     HebrewPattern "4char_test_pattern" 4 [isHebrewMain, isDagesh, isCode1463, isNotAlephAndNotYod] 3, 
-     HebrewPattern "4char_test_pattern" 4 [isHebrewMain, isDagesh, isCode1464, isNotAlephAndNotBet] 3, 
-     HebrewPattern "4char_test_pattern" 4 [isHebrewMain, isDagesh, isCode1465, isNotAlephAndNotBet] 3, 
-     HebrewPattern "4char_test_pattern" 4 [isHebrewMain, isDagesh, isVav, isCode1466] 3, 
-     HebrewPattern "4char_test_pattern" 4 [isHebrewMain, isDagesh, isVav, isDagesh] 3, 
-     HebrewPattern "4char_test_pattern" 4 [isHebrewMain, isBiblePoint, isCode1460, isNotYod] 3, 
-     HebrewPattern "4char_test_pattern" 4 [isHebrewMain, isBiblePoint, isCode1461, isNotAlephBetYod] 3, 
-     HebrewPattern "4char_test_pattern" 4 [isHebrewMain, isBiblePoint, isCode1462, isNotAlephAndNotBet] 3, 
-     HebrewPattern "4char_test_pattern" 4 [isHebrewMain, isBiblePoint, isCode1463, isNotAlephAndNotYod] 3, 
-     HebrewPattern "4char_test_pattern" 4 [isHebrewMain, isBiblePoint, isCode1464, isNotAlephAndNotBet] 3, 
-     HebrewPattern "4char_test_pattern" 4 [isHebrewMain, isBiblePoint, isCode1465, isNotAlephAndNotBet] 3, 
-     HebrewPattern "4char_test_pattern" 4 [isHebrewMain, isBiblePoint, isVav, isCode1466] 3, 
-     HebrewPattern "4char_test_pattern" 4 [isHebrewMain, isBiblePoint, isVav, isDagesh] 3, 
-     HebrewPattern "4char_test_pattern" 4 [isHebrewMain, isCode1460, isYod, isOutsideBibleAndNotSpecialAndNotYod] 3, 
-     HebrewPattern "4char_test_pattern" 4 [isHebrewMain, isCode1461, isAlephOrBetOrYod, isOutsideBibleAndNotSpecialAndNotYod] 3, 
-     HebrewPattern "4char_test_pattern" 4 [isHebrewMain, isCode1462, isAlephOrBet, isOutsideBibleAndNotSpecialAndNotYod] 3, 
-     HebrewPattern "4char_test_pattern" 4 [isHebrewMain, isCode1463, isYod, isOutsideBibleAndNotSpecialAndNotYod] 3, 
-     HebrewPattern "4char_test_pattern" 4 [isHebrewMain, isCode1464, isAlephOrBet, isOutsideBibleAndNotSpecialAndNotYod] 3, 
-     HebrewPattern "4char_test_pattern" 4 [isHebrewMain, isCode1464, isYod, isNotSpecialMarksAndNotVav] 3, 
-     HebrewPattern "4char_test_pattern" 4 [isHebrewMain, isCode1465, isAlephOrBet, isNotSpecialMarks] 3, 
-     HebrewPattern "4char_test_pattern" 4 [isHebrewMain, isCode1460, isYod, isBibleOrSpecialMarks] 2, 
-     HebrewPattern "4char_test_pattern" 4 [isHebrewMain, isCode1461, isAlephOrBetOrYod, isBibleOrSpecialMarks] 2, 
-     HebrewPattern "4char_test_pattern" 4 [isHebrewMain, isCode1462, isAlephOrBet, isBibleOrSpecialMarks] 2, 
-     HebrewPattern "4char_test_pattern" 4 [isHebrewMain, isCode1463, isYod, isBibleOrSpecialMarks] 2, 
-     HebrewPattern "4char_test_pattern" 4 [isHebrewMain, isCode1464, isAlephOrBet, isBibleOrSpecialMarks] 2, 
-     HebrewPattern "4char_test_pattern" 4 [isHebrewMain, isCode1464, isYod, isBibleOrSpecialMarks] 2, 
-     HebrewPattern "4char_test_pattern" 4 [isHebrewMain, isCode1465, isAlephOrBet, isBibleOrSpecialMarks] 2, 
-     HebrewPattern "3char_test_pattern" 3 [isHebrewMain, isDagesh, isVowelEtc] 3, 
-     HebrewPattern "3char_test_pattern" 3 [isHebrewMain, isBiblePoint, isVowelEtc] 3, 
-     HebrewPattern "3char_test_pattern" 3 [isHebrewMain, isCode1460, isNotYod] 2, 
-     HebrewPattern "3char_test_pattern" 3 [isHebrewMain, isCode1461, isNotAlephBetYod] 2, 
-     HebrewPattern "3char_test_pattern" 3 [isHebrewMain, isCode1462, isNotAlephAndNotBet] 2, 
-     HebrewPattern "3char_test_pattern" 3 [isHebrewMain, isCode1463, isNotAlephAndNotYod] 2, 
-     HebrewPattern "3char_test_pattern" 3 [isHebrewMain, isCode1464, isNotAlephAndNotBet] 2, 
-     HebrewPattern "3char_test_pattern" 3 [isHebrewMain, isCode1465, isNotAlephAndNotBet] 2, 
-     HebrewPattern "3char_test_pattern" 3 [isHebrewMain, isVav, isCode1466] 2, 
-     HebrewPattern "3char_test_pattern" 3 [isHebrewMain, isVav, isDagesh] 2, 
-     HebrewPattern "2char_test_pattern" 2 [isHebrewMain, isVowelEtc] 2,
+     HebrewPattern "c_k_l_f_h_pattern" 8 [isShinLetter, isShinDotMark, isDagesh, isCantillation, isPatahQamatsOrVav, isSegolDageshAlefYod, isVavOrYod, isMainLetterVavYodAlef] 6,
+
+     HebrewPattern "c_k_l_f_pattern" 7 [isShinLetter, isShinDotMark, isDagesh, isCantillation, isPatahQamatsOrVav, isSegolDageshAlefYod, isVavOrYod] 7,
+     HebrewPattern "a_k_l_f_h_pattern" 7 [isHebrewConsonant, isDagesh, isCantillation, isPatahQamatsOrVav, isSegolDageshAlefYod, isVavOrYod, isMainLetterVavYodAlef] 5,
+     HebrewPattern "c_k_l_g_h_pattern" 7 [isShinLetter, isShinDotMark, isDagesh, isCantillation, isHiriqOrTzere, isYod, isMainLetterVavYodAlef] 5,
+     HebrewPattern "c_k_l_i_j_h_pattern" 7 [isShinLetter, isShinDotMark, isDagesh, isCantillation, isMainVowelOrVav, isAlefOrYod, isMainLetterVavYodAlef] 5,
+     HebrewPattern "c_l_f_h_pattern" 7 [isShinLetter, isShinDotMark, isCantillation, isPatahQamatsOrVav, isSegolDageshAlefYod, isVavOrYod, isMainLetterVavYodAlef] 5,
+     HebrewPattern "c_k_f_h_pattern" 7 [isShinLetter, isShinDotMark, isDagesh, isPatahQamatsOrVav, isSegolDageshAlefYod, isVavOrYod, isMainLetterVavYodAlef] 5,
+
+     HebrewPattern "c_k_l_e_pattern" 6 [isShinLetter, isShinDotMark, isDagesh, isCantillation, isMainVowelOrVav, isSegolDageshAlefBetYod] 6,
+     HebrewPattern "a_k_l_f_pattern" 6 [isHebrewConsonant, isDagesh, isCantillation, isPatahQamatsOrVav, isSegolDageshAlefYod, isVavOrYod] 6,
+     HebrewPattern "c_l_f_pattern" 6 [isShinLetter, isShinDotMark, isCantillation, isPatahQamatsOrVav, isSegolDageshAlefYod, isVavOrYod] 6,
+     HebrewPattern "c_k_f_pattern" 6 [isShinLetter, isShinDotMark, isDagesh, isPatahQamatsOrVav, isSegolDageshAlefYod, isVavOrYod] 6,
+     HebrewPattern "c_k_l_d_pattern" 6 [isShinLetter, isShinDotMark, isDagesh, isCantillation, isHiriqTzereOrVav, isYodSegolOrDagesh] 6,
+     HebrewPattern "c_f_h_pattern" 6 [isShinLetter, isShinDotMark, isPatahQamatsOrVav, isSegolDageshAlefYod, isVavOrYod, isMainLetterVavYodAlef] 4,
+     HebrewPattern "a_k_l_g_h_pattern" 6 [isHebrewConsonant, isDagesh, isCantillation, isHiriqOrTzere, isYod, isMainLetterVavYodAlef] 4,
+     HebrewPattern "a_k_l_i_j_h_pattern" 6 [isHebrewConsonant, isDagesh, isCantillation, isMainVowelOrVav, isAlefOrYod, isMainLetterVavYodAlef] 4,
+     HebrewPattern "a_l_f_h_pattern" 6 [isHebrewConsonant, isCantillation, isPatahQamatsOrVav, isSegolDageshAlefYod, isVavOrYod, isMainLetterVavYodAlef] 4,
+     HebrewPattern "a_k_f_h_pattern" 6 [isHebrewConsonant, isDagesh, isPatahQamatsOrVav, isSegolDageshAlefYod, isVavOrYod, isMainLetterVavYodAlef] 4,
+     HebrewPattern "c_k_g_h_pattern" 6 [isShinLetter, isShinDotMark, isDagesh, isHiriqOrTzere, isYod, isMainLetterVavYodAlef] 4,
+     HebrewPattern "c_k_i_j_h_pattern" 6 [isShinLetter, isShinDotMark, isDagesh, isMainVowelOrVav, isAlefOrYod, isMainLetterVavYodAlef] 4,
+     HebrewPattern "c_l_g_h_pattern" 6 [isShinLetter, isShinDotMark, isCantillation, isHiriqOrTzere, isYod, isMainLetterVavYodAlef] 4,
+     HebrewPattern "c_l_i_j_h_pattern" 6 [isShinLetter, isShinDotMark, isCantillation, isMainVowelOrVav, isAlefOrYod, isMainLetterVavYodAlef] 4,
+
+     HebrewPattern "a_k_l_e_pattern" 5 [isHebrewConsonant, isDagesh, isCantillation, isMainVowelOrVav, isSegolDageshAlefBetYod] 5,
+     HebrewPattern "a_k_f_pattern" 5 [isHebrewConsonant, isDagesh, isPatahQamatsOrVav, isSegolDageshAlefYod, isVavOrYod] 5,
+     HebrewPattern "a_l_f_pattern" 5 [isHebrewConsonant, isCantillation, isPatahQamatsOrVav, isSegolDageshAlefYod, isVavOrYod] 5,
+     HebrewPattern "c_f_pattern" 5 [isShinLetter, isShinDotMark, isPatahQamatsOrVav, isSegolDageshAlefYod, isVavOrYod] 5,
+     HebrewPattern "c_k_e_pattern" 5 [isShinLetter, isShinDotMark, isDagesh, isMainVowelOrVav, isSegolDageshAlefBetYod] 5,
+     HebrewPattern "c_l_e_pattern" 5 [isShinLetter, isShinDotMark, isCantillation, isMainVowelOrVav, isSegolDageshAlefBetYod] 5,
+     HebrewPattern "a_k_l_d_pattern" 5 [isHebrewConsonant, isDagesh, isCantillation, isHiriqTzereOrVav, isYodSegolOrDagesh] 5,
+     HebrewPattern "c_k_l_b_pattern" 5 [isShinLetter, isShinDotMark, isDagesh, isCantillation, isHebrewVowelMark] 5,
+     HebrewPattern "c_k_d_pattern" 5 [isShinLetter, isShinDotMark, isDagesh, isHiriqTzereOrVav, isYodSegolOrDagesh] 5,
+     HebrewPattern "c_l_d_pattern" 5 [isShinLetter, isShinDotMark, isCantillation, isHiriqTzereOrVav, isYodSegolOrDagesh] 5,
+     HebrewPattern "a_k_g_h_pattern" 5 [isHebrewConsonant, isDagesh, isHiriqOrTzere, isYod, isMainLetterVavYodAlef] 3,
+     HebrewPattern "a_k_i_j_h_pattern" 5 [isHebrewConsonant, isDagesh, isMainVowelOrVav, isAlefOrYod, isMainLetterVavYodAlef] 3,
+     HebrewPattern "a_l_g_h_pattern" 5 [isHebrewConsonant, isCantillation, isHiriqOrTzere, isYod, isMainLetterVavYodAlef] 3,
+     HebrewPattern "a_l_i_j_h_pattern" 5 [isHebrewConsonant, isCantillation, isMainVowelOrVav, isAlefOrYod, isMainLetterVavYodAlef] 3,
+     HebrewPattern "a_f_h_pattern" 5 [isHebrewConsonant, isPatahQamatsOrVav, isSegolDageshAlefYod, isVavOrYod, isMainLetterVavYodAlef] 3,
+     HebrewPattern "c_g_h_pattern" 5 [isShinLetter, isShinDotMark, isHiriqOrTzere, isYod, isMainLetterVavYodAlef] 3,
+     HebrewPattern "c_i_j_h_pattern" 5 [isShinLetter, isShinDotMark, isMainVowelOrVav, isAlefOrYod, isMainLetterVavYodAlef] 3,
+
+     HebrewPattern "a_k_l_b_pattern" 4 [isHebrewConsonant, isDagesh, isCantillation, isHebrewVowelMark] 4,
+     HebrewPattern "a_k_e_pattern" 4 [isHebrewConsonant, isDagesh, isMainVowelOrVav, isSegolDageshAlefBetYod] 4,
+     HebrewPattern "a_l_e_pattern" 4 [isHebrewConsonant, isCantillation, isMainVowelOrVav, isSegolDageshAlefBetYod] 4,
+     HebrewPattern "a_f_pattern" 4 [isHebrewConsonant, isPatahQamatsOrVav, isSegolDageshAlefYod, isVavOrYod] 4,
+     HebrewPattern "c_e_pattern" 4 [isShinLetter, isShinDotMark, isMainVowelOrVav, isSegolDageshAlefBetYod] 4,
+     HebrewPattern "c_k_b_pattern" 4 [isShinLetter, isShinDotMark, isDagesh, isHebrewVowelMark] 4,
+     HebrewPattern "c_l_b_pattern" 4 [isShinLetter, isShinDotMark, isCantillation, isHebrewVowelMark] 4,
+     HebrewPattern "c_k_l_pattern" 4 [isShinLetter, isShinDotMark, isDagesh, isCantillation] 4,
+     HebrewPattern "a_k_d_pattern" 4 [isHebrewConsonant, isDagesh, isHiriqTzereOrVav, isYodSegolOrDagesh] 4,
+     HebrewPattern "a_l_d_pattern" 4 [isHebrewConsonant, isCantillation, isHiriqTzereOrVav, isYodSegolOrDagesh] 4,
+     HebrewPattern "c_d_pattern" 4 [isShinLetter, isShinDotMark, isHiriqTzereOrVav, isYodSegolOrDagesh] 4,
+     HebrewPattern "a_g_h_pattern" 4 [isHebrewConsonant, isHiriqOrTzere, isYod, isMainLetterVavYodAlef] 2,
+     HebrewPattern "a_i_j_h_pattern" 4 [isHebrewConsonant, isMainVowelOrVav, isAlefOrYod, isMainLetterVavYodAlef] 2,
+
+     HebrewPattern "a_k_b_pattern" 3 [isHebrewConsonant, isDagesh, isHebrewVowelMark] 3,
+     HebrewPattern "a_d_pattern" 3 [isHebrewConsonant, isHiriqTzereOrVav, isYodSegolOrDagesh] 3,
+     HebrewPattern "a_e_pattern" 3 [isHebrewConsonant, isMainVowelOrVav, isSegolDageshAlefBetYod] 3,
+     HebrewPattern "a_l_b_pattern" 3 [isHebrewConsonant, isCantillation, isHebrewVowelMark] 3,
+     HebrewPattern "c_b_pattern" 3 [isShinLetter, isShinDotMark, isHebrewVowelMark] 3,
+     HebrewPattern "c_k_pattern" 3 [isShinLetter, isShinDotMark, isDagesh] 3,
+     HebrewPattern "c_l_pattern" 3 [isShinLetter, isShinDotMark, isCantillation] 3,
+
+     HebrewPattern "a_b_pattern" 2 [isHebrewConsonant, isHebrewVowelMark] 2,
+     HebrewPattern "c_pattern" 2 [isShinLetter, isShinDotMark] 2,
+     HebrewPattern "k_l_pattern" 2 [isDagesh, isCantillation] 2
+     ]
      -- ヘブライ語以外
-     HebrewPattern "combining_char_547_771" 2 [isCode547, isCode771] 2]
+     
 
 ---- スライディングウィンドウによる最長パターンマッチ
 findLongestPatternSliding :: [HebrewPattern] -> [Int] -> Maybe (HebrewPattern, Int, [Int])
-findLongestPatternSliding patterns xs =
-  let try [] = Nothing
-      try (p:ps) =
-        let len = tpLength p
-            checkers = tpCheckers p
-            candidates = [ (i, take len (drop i xs))
-                         | i <- [0 .. length xs - len] ]
-            found = [ (i, seg) | (i, seg) <- candidates
-                               , and (zipWith ($) checkers seg) ]
-        in case found of
-             ((i, seg):_) -> Just (p, i, seg)
-             []           -> try ps
-  in try patterns
+findLongestPatternSliding patterns xs = 
+    let -- パターンを長さの降順でソート（最長優先）
+        sortedPatterns = sortBy (flip compare `on` tpLength) patterns
+        
+        -- 各位置での最良のマッチを見つける
+        findBestMatch pos remainingChars
+            | null remainingChars = Nothing
+            | otherwise = 
+                let validPatterns = filter (\p -> tpLength p <= length remainingChars) sortedPatterns
+                in tryPatterns validPatterns pos remainingChars
+        
+        tryPatterns [] _ _ = Nothing
+        tryPatterns (p:ps) pos chars =
+            let len = tpLength p
+                checkers = tpCheckers p
+                segment = take len chars
+            in if length segment == len && and (zipWith ($) checkers segment)
+               then Just (p, pos, segment)
+               else tryPatterns ps pos chars
+        
+        -- 全ての位置を試す
+        tryAllPositions pos
+            | pos >= length xs = Nothing
+            | otherwise =
+                case findBestMatch pos (drop pos xs) of
+                    Just result -> Just result
+                    Nothing -> tryAllPositions (pos + 1)
+    
+    in tryAllPositions 0
 
 -- スライディングウィンドウ方式で解析
-processUnicodesSliding :: [Int] -> IO AnalysisResult
-processUnicodesSliding unicodes = go unicodes []
+processUnicodesWithPatternMatching :: [Int] -> IO AnalysisResult
+processUnicodesWithPatternMatching unicodes = 
+    let processChunk :: [Int] -> Int -> [[Int]] -> IO AnalysisResult
+        processChunk [] _ acc = return $ AnalysisResult (reverse acc) (length acc)
+        processChunk chars@(c:rest) startPos acc = do
+            case findLongestPatternSliding allHebrewPatterns chars of
+                Just (pat, relPos, seg) -> do
+                    let absPos = startPos + relPos
+                    -- パターンマッチ前の文字を個別処理
+                    let beforeChars = take relPos chars
+                        beforeColumns = map (\c -> 0 : [c] ++ replicate 4 0) beforeChars
+                    
+                    -- パターンを処理
+                    let split = tpSplitPoint pat
+                        (firstCol, nextCol) = 
+                            if split > 0 && split < tpLength pat
+                            then (take split seg, drop split seg)
+                            else (seg, [])
+                        firstColumn = 0 : firstCol ++ replicate (5 - length firstCol) 0
+                    
+                    let newAcc = reverse beforeColumns ++ acc
+                    if null nextCol
+                        then do
+                            let remainingChars = drop (relPos + tpLength pat) chars
+                            processChunk remainingChars (absPos + tpLength pat) (firstColumn : newAcc)
+                        else do
+                            let nextColumn = 0 : nextCol ++ replicate (5 - length nextCol) 0
+                                remainingChars = drop (relPos + tpLength pat) chars
+                            processChunk remainingChars (absPos + tpLength pat) (nextColumn : firstColumn : newAcc)
+                
+                Nothing -> do
+                    -- パターンが見つからない場合、最初の文字のみ処理
+                    let singleCharColumn = 0 : [c] ++ replicate 4 0
+                    processChunk rest (startPos + 1) (singleCharColumn : acc)
+    
+    in processChunk unicodes 0 []
+
+
+processUnicodesInBatches :: [Int] -> Int -> IO AnalysisResult
+processUnicodesInBatches unicodes batchSize = do
+    let batches = chunksOf batchSize unicodes
+    results <- mapM processUnicodesWithPatternMatching batches
+    let combinedColumns = concatMap columns results
+        totalColumns = length combinedColumns
+    return $ AnalysisResult combinedColumns totalColumns
   where
-    go [] acc = return $ AnalysisResult (reverse acc) (length acc)
-    go xs acc =
-      case findLongestPatternSliding allHebrewPatterns xs of
-        Just (pat, pos, seg) -> do
-          let split = tpSplitPoint pat
-              (firstCol, nextCol) =
-                if split > 0 && split < tpLength pat
-                then (take split seg, drop split seg)
-                else (seg, [])
-              firstColumn = 0 : firstCol ++ replicate (5 - length firstCol) 0
-          if null nextCol
-            then go (drop (pos + tpLength pat) xs) (firstColumn : acc)
-            else do
-              let nextColumn = 0 : nextCol ++ replicate (5 - length nextCol) 0
-              go (drop (pos + tpLength pat) xs) (nextColumn : firstColumn : acc)
-        Nothing ->
-          case xs of
-            (c:rest) -> do
-              let singleCharColumn = 0 : [c] ++ replicate 4 0
-              go rest (singleCharColumn : acc)
+    chunksOf :: Int -> [a] -> [[a]]
+    chunksOf _ [] = []
+    chunksOf n xs = take n xs : chunksOf n (drop n xs)
 
 -- 文字列解析(スライディングウィンドウ版)
-analyzeStringSliding :: String -> IO AnalysisResult
-analyzeStringSliding str = do
+analyzeStringAdvanced :: String -> Int -> IO AnalysisResult
+analyzeStringAdvanced str batchSize = do
     let strNoSpaces = filter (not . isSpace) str
         unicodes = map ord strNoSpaces
-    result <- processUnicodesSliding unicodes
-    return result
+    if length unicodes > batchSize
+        then processUnicodesInBatches unicodes batchSize
+        else processUnicodesWithPatternMatching unicodes
 
 -- 解析結果データ型
 data AnalysisResult = AnalysisResult
@@ -599,11 +547,11 @@ getCompositeUnicode compositeStr = case compositeStr of
     (c:_) -> ord c
 
 -- 値取得（1行目は常に0を返すよう修正）
-getValueAt :: AnalysisResult -> Int -> Int -> Int
-getValueAt result row col
+getValueAtImproved :: AnalysisResult -> Int -> Int -> Int
+getValueAtImproved result row col
     | col < 1 || col > totalCols result = 0
     | row < 1 = 0
-    | row == 1 = 0  -- ★ 1行目は常に0を返す
+    | row == 1 = 0  -- 1行目は常に0
     | otherwise =
         case safeIndex (columns result) (col - 1) of
             Nothing -> 0
@@ -633,22 +581,42 @@ real_len_advanced cws len_c elem1 elem2 = do
             then return (-1)
             else do
                 str <- peekCWStringLen (castPtr cws, fromIntegral len_c)
-                let unicodes = map ord str
-                analysisResult <- analyzeStringSliding str
+                let unicodes = map ord (filter (not . isSpace) str)
+                
+                -- バッチサイズを動的に調整
+                let batchSize = max 1000 (length unicodes `div` 10)
+                analysisResult <- if length unicodes > 5000
+                    then processUnicodesInBatches unicodes batchSize
+                    else processUnicodesWithPatternMatching unicodes
+                
                 let row = fromIntegral elem1
                     col = fromIntegral elem2
+                
                 if row == 0 && col == 0
                 then do
                     let totalColumns = totalCols analysisResult
                         validColumns = length $ filter (\colIdx -> 
-                            let colValue = getValueAt analysisResult 2 colIdx
+                            let colValue = getValueAtImproved analysisResult 2 colIdx
                             in colValue /= 0 && colValue /= -999 && colValue /= -998 && colValue /= -1) [1..totalColumns]
                     return (fromIntegral validColumns)
                 else do
-                    let value = getValueAt analysisResult row col
+                    let value = getValueAtImproved analysisResult row col
                     return (fromIntegral value)
         ) `catch` (\(_ :: SomeException) -> return (-998))
     return result
+
+-- Helper functions
+sortBy :: (a -> a -> Ordering) -> [a] -> [a]
+sortBy cmp = foldr (insertBy cmp) []
+
+insertBy :: (a -> a -> Ordering) -> a -> [a] -> [a]
+insertBy _   x [] = [x]
+insertBy cmp x ys@(y:ys') = case cmp x y of
+    GT -> y : insertBy cmp x ys'
+    _  -> x : ys
+
+on :: (b -> b -> c) -> (a -> b) -> a -> a -> c
+on f g x y = f (g x) (g y)
 
 real_len :: CWString -> CInt -> CInt -> CInt -> IO CInt　　
 real_len cws len_c elem1 elem2 = do
@@ -730,51 +698,73 @@ processUnicodesForValues unicodes = go unicodes []
                         -- ヘブライ語パターンをチェック
                         case findLongestPatternSliding allHebrewPatterns xs of
                             Just (pat, pos, seg) -> do
+                                -- パターンマッチ前の文字を個別処理（修正）
+                                let beforeChars = take pos xs
+                                    beforeColumns = map (\c -> 
+                                        let charPos = length unicodes - length xs + (c `elemIndex'` beforeChars)
+                                            charValue = calculateSimpleCharValue unicodes charPos c
+                                        in 0 : [charValue] ++ replicate 4 0) beforeChars
+                                
                                 let patLen = tpLength pat
                                     split = tpSplitPoint pat
                                     (firstColChars, nextColChars) = 
                                         if split > 0 && split < patLen
                                         then (take split seg, drop split seg)
                                         else (seg, [])
-                                    firstColValues = processSpecialCharsAdvanced unicodes firstColChars pos
+                                    -- パターン内文字は専用関数を使用
+                                    firstColValues = map (\c -> 
+                                        let charPos = length unicodes - length xs + pos + (c `elemIndex'` firstColChars)
+                                        in calculateValueForPatternChar unicodes charPos c) firstColChars
                                     firstColumn = 0 : firstColValues ++ replicate (5 - length firstColValues) 0
+                                
+                                let newAcc = reverse beforeColumns ++ acc
                                 if null nextColChars
-                                then go (drop (pos + patLen) xs) (firstColumn : acc)
+                                then go (drop (pos + patLen) xs) (firstColumn : newAcc)
                                 else do
-                                    let nextColValues = processSpecialCharsAdvanced unicodes nextColChars (pos + split)
+                                    let nextColValues = map (\c -> 
+                                            let charPos = length unicodes - length xs + pos + split + (c `elemIndex'` nextColChars)
+                                            in calculateValueForPatternChar unicodes charPos c) nextColChars
                                         nextColumn = 0 : nextColValues ++ replicate (5 - length nextColValues) 0
-                                    go (drop (pos + patLen) xs) (nextColumn : firstColumn : acc)
+                                    go (drop (pos + patLen) xs) (nextColumn : firstColumn : newAcc)
                             Nothing ->
-                                -- 個別文字処理
+                                -- 個別文字処理（修正）
                                 case xs of
                                     (firstChar:restChars) -> do
-                                        let charValue = calculateAdvancedValue unicodes (length unicodes - length xs) firstChar
+                                        let charPos = length unicodes - length xs
+                                            charValue = calculateSimpleCharValue unicodes charPos firstChar
                                             singleCharColumn = 0 : [charValue] ++ replicate 4 0
                                         go restChars (singleCharColumn : acc)
+
+-- ヘルパー関数：リスト内での要素のインデックスを取得
+elemIndex' :: Eq a => a -> [a] -> Int
+elemIndex' x xs = case elemIndex x xs of
+    Just i -> i
+    Nothing -> 0
+  where
+    elemIndex _ [] = Nothing
+    elemIndex y (z:zs)
+        | y == z = Just 0
+        | otherwise = fmap (+1) (elemIndex y zs)
 
 -- ★ より高度な処理:文字列全体での位取り・パターン計算
 processSpecialCharsAdvanced :: [Int] -> [Int] -> Int -> [Int]
 processSpecialCharsAdvanced allUnicodes chars startPos =     
-    map (\(char, offset) -> calculateAdvancedValue allUnicodes (startPos + offset) char) 
+    map (\(char, offset) -> calculateValueForPatternChar allUnicodes (startPos + offset) char) 
         (zip chars [0..])
 
+
 -- ★ 高度な値計算(位取り・ローマ数字パターン対応)
-calculateAdvancedValue :: [Int] -> Int -> Int -> Int
-calculateAdvancedValue allUnicodes pos char
+calculateValueForPatternChar :: [Int] -> Int -> Int -> Int
+calculateValueForPatternChar allUnicodes pos char
     | pos < 0 || pos >= length allUnicodes = 0
     | isArabicDigit char = calculateDigitValue allUnicodes pos
-    | isRomanNumeralExtended char = 
-        let remainingFromPos = drop pos allUnicodes
-        in case checkRomanPattern remainingFromPos of
-            Just (totalValue, consumed) ->
-                let individualValues = calculateIndividualRomanValues remainingFromPos consumed totalValue
-                    sequenceStart = findRomanSequenceStart allUnicodes pos
-                    indexInSequence = pos - sequenceStart
-                in if indexInSequence >= 0 && indexInSequence < length individualValues
-                   then individualValues !! indexInSequence
-                   else getCharValue char 
-            Nothing -> getCharValue char
-    | otherwise = getCharValue char
+    | otherwise = getCharValue char  -- 辞書参照のみ、ローマ数字の特殊処理は行わない
+
+calculateSimpleCharValue :: [Int] -> Int -> Int -> Int
+calculateSimpleCharValue allUnicodes pos char
+    | pos < 0 || pos >= length allUnicodes = 0
+    | isArabicDigit char = calculateDigitValue allUnicodes pos
+    | otherwise = getCharValue char  -- 辞書参照のみ
 
 isArabicDigit :: Int -> Bool
 isArabicDigit x = x >= 48 && x <= 57  -- Unicode range for '0' to '9'
