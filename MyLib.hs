@@ -296,7 +296,7 @@ isHebrewVowelMark :: Int -> Bool
 isHebrewVowelMark x = x `elem` hebrewVowelMarks
   where
     hebrewVowelMarks =
-      [1456,1457,1458,1459,1460,1461,1462,1463,1464,1465,1466,1467]
+      [1456,1457,1458,1459,1460,1461,1462,1463,1464,1465,1467]
 
 -- シン（ש, 1513）判定
 isShinLetter :: Int -> Bool
@@ -356,12 +356,6 @@ isDagesh x = x == 1468
 isCantillation :: Int -> Bool
 isCantillation x = (1425 <= x && x <= 1455) || (x == 1469)
 
---ヘブライ語以外
-is547 :: Int -> Bool
-is547 x = x == 547
-
-is771 :: Int -> Bool
-is771 x = x == 771
 
 -- Hebrew用のパターン定義
 data HebrewPattern = HebrewPattern
@@ -439,11 +433,9 @@ allHebrewPatterns = [
 
      HebrewPattern "a_b_pattern" 2 [isHebrewConsonant, isHebrewVowelMark] 2,
      HebrewPattern "c_pattern" 2 [isShinLetter, isShinDotMark] 2,
-     HebrewPattern "k_l_pattern" 2 [isDagesh, isCantillation] 2,
-     -- ヘブライ語以外
-     HebrewPattern "nonHebrewpattern" 2 [is547, is771] 2
+     HebrewPattern "k_l_pattern" 2 [isDagesh, isCantillation] 2
      ]
-     
+     -- ヘブライ語以外
      
 
 ---- スライディングウィンドウによる最長パターンマッチ
@@ -869,6 +861,7 @@ checkRomanPattern (390:_) = Just (0, 1)
 
 checkRomanPattern _ = Nothing
 
+
 isInMyDict :: Int -> Bool
 isInMyDict x = case Map.lookup x myDict of
     Just (Right _) -> True
@@ -909,8 +902,7 @@ calculateIndividualRomanValues chars consumed totalValue = case (chars, consumed
     
     -- 単一文字
     _ -> [totalValue]
-
-    
+   
 -- 連続数字シーケンスの開始位置と文字列を取得
 getDigitSequence :: [Int] -> Int -> (Int, [Int])
 getDigitSequence unicodes pos = 
@@ -944,161 +936,7 @@ getSingleCharValueSimple char
         Just (Right v) -> v
         _ -> 0
 
--- ダゲッシュ判定関数
-isDageshStrong :: Int -> Bool
-isDageshStrong x = x == 1468  -- Unicode for dagesh (U+05BC)
-
--- BeGaDKeFaT文字判定
-isBeGaDKeFaT :: Int -> Bool
-isBeGaDKeFaT x = x `elem` [1489, 1490, 1491, 1499, 1508, 1514]  -- ב ג ד כ פ ת
-
--- 空白位置を保持したUnicode変換
-convertToUnicodesWithSpaceInfo :: String -> [(Int, Bool)]  -- (Unicode, isAfterSpace)
-convertToUnicodesWithSpaceInfo str = 
-    let processChar :: [Char] -> Bool -> [(Int, Bool)]
-        processChar [] _ = []
-        processChar (c:cs) wasSpace
-            | isSpace c = processChar cs True  -- 空白をスキップするが、次の文字にフラグを設定
-            | otherwise = (ord c, wasSpace) : processChar cs False
-    in processChar str True  -- 文字列の最初は語境界として扱う
-
--- 空白情報を考慮した語境界判定
-isWordBoundaryWithSpaceInfo :: [(Int, Bool)] -> Int -> Bool
-isWordBoundaryWithSpaceInfo unicodeInfo pos
-    | pos <= 0 = True  -- 文字列の最初
-    | pos >= length unicodeInfo = True  -- 文字列の最後
-    | otherwise = snd (unicodeInfo !! pos)  -- 空白後フラグをチェック
-
--- 修正版：空白情報を考慮した強ダゲッシュ判定
-isStrongDageshWithSpaceInfo :: [(Int, Bool)] -> Int -> Bool
-isStrongDageshWithSpaceInfo unicodeInfo pos
-    | pos < 0 || pos >= length unicodeInfo = False
-    | not (isDageshStrong (fst (unicodeInfo !! pos))) = False
-    | otherwise = 
-        let -- 前の文字をチェック
-            prevChar = if pos > 0 then Just (fst (unicodeInfo !! (pos - 1))) else Nothing
-            -- 次の文字をチェック（ダゲッシュの直後）
-            nextChar = if pos < length unicodeInfo - 1 then Just (fst (unicodeInfo !! (pos + 1))) else Nothing
-            -- 現在位置が語境界かチェック
-            atWordBoundary = isWordBoundaryWithSpaceInfo unicodeInfo pos
-        in case prevChar of
-            -- BeGaDKeFaT文字の直後にダゲッシュがある場合
-            Just prev | isBeGaDKeFaT prev -> 
-                -- 語頭のBeGaDKeFaT + ダゲッシュかどうかをチェック
-                if isWordBoundaryWithSpaceInfo unicodeInfo (pos - 1)
-                then True  -- 語頭の強ダゲッシュ
-                else True  -- 語中の強ダゲッシュ（子音重複）
-            -- その他のヘブライ語子音の直後にダゲッシュがある場合は強ダゲッシュ
-            Just prev | isHebrewConsonant prev -> True
-            -- ダゲッシュが語頭にある場合
-            _ -> case nextChar of
-                Just next | isBeGaDKeFaT next && atWordBoundary -> True  -- 語頭のBeGaDKeFaT + ダゲッシュ
-                _ -> False
-
--- 修正版：空白情報を考慮した強ダゲッシュ値計算
-calculateStrongDageshValueWithSpaceInfo :: [(Int, Bool)] -> Int -> Int
-calculateStrongDageshValueWithSpaceInfo unicodeInfo pos
-    | not (isStrongDageshWithSpaceInfo unicodeInfo pos) = 0
-    | pos <= 0 = 0
-    | otherwise = 
-        let prevPos = pos - 1
-            prevChar = fst (unicodeInfo !! prevPos)
-            isAtWordStart = isWordBoundaryWithSpaceInfo unicodeInfo prevPos
-        in if isHebrewConsonant prevChar
-           then getCharValue prevChar  -- 語頭・語中問わず前の子音と同じ値
-           else 0
-
--- 修正版の値計算関数（空白情報考慮の強ダゲッシュ対応）
-calculateValueForPatternCharWithSpaceInfo :: [(Int, Bool)] -> [Int] -> Int -> Int -> Int
-calculateValueForPatternCharWithSpaceInfo unicodeInfo allUnicodes pos char
-    | pos < 0 || pos >= length allUnicodes = 0
-    | isStrongDageshWithSpaceInfo unicodeInfo pos = calculateStrongDageshValueWithSpaceInfo unicodeInfo pos
-    | isArabicDigit char = calculateDigitValue allUnicodes pos
-    | otherwise = getCharValue char
-
-calculateSimpleCharValueWithSpaceInfo :: [(Int, Bool)] -> [Int] -> Int -> Int -> Int
-calculateSimpleCharValueWithSpaceInfo unicodeInfo allUnicodes pos char
-    | pos < 0 || pos >= length allUnicodes = 0
-    | isStrongDageshWithSpaceInfo unicodeInfo pos = calculateStrongDageshValueWithSpaceInfo unicodeInfo pos
-    | isArabicDigit char = calculateDigitValue allUnicodes pos
-    | otherwise = getCharValue char
-
--- 修正版のUnicode処理関数（空白情報考慮の強ダゲッシュ対応）
-processUnicodesForValuesWithSpaceInfo :: [(Int, Bool)] -> IO ValueAnalysisResult
-processUnicodesForValuesWithSpaceInfo unicodeInfo = 
-    let unicodes = map fst unicodeInfo  -- Unicode値のリストを抽出
-    in go unicodes []
-  where
-    go [] acc = return $ ValueAnalysisResult (reverse acc) (length acc)
-    go xs acc = do
-        -- まず3文字のローマ数字パターンをチェック
-        case checkRomanPattern (take 3 xs) of
-            Just (totalValue, 3) -> do
-                let patternChars = take 3 xs
-                    remaining = drop 3 xs
-                    individualValues = calculateIndividualRomanValues patternChars 3 totalValue
-                    columns = map (\val -> 0 : [val] ++ replicate 4 0) individualValues
-                go remaining (reverse columns ++ acc)
-            _ -> 
-                -- 次に2文字のローマ数字パターンをチェック
-                case checkRomanPattern (take 2 xs) of
-                    Just (totalValue, 2) -> do
-                        let patternChars = take 2 xs
-                            remaining = drop 2 xs
-                            individualValues = calculateIndividualRomanValues patternChars 2 totalValue
-                            columns = map (\val -> 0 : [val] ++ replicate 4 0) individualValues
-                        go remaining (reverse columns ++ acc)
-                    _ -> 
-                        -- ヘブライ語パターンをチェック
-                        case findLongestPatternSliding allHebrewPatterns xs of
-                            Just (pat, pos, seg) -> do
-                                -- パターンマッチ前の文字を個別処理（空白情報考慮）
-                                let beforeChars = take pos xs
-                                    allUnicodes = map fst unicodeInfo
-                                    beforeColumns = map (\c -> 
-                                        let charPos = length allUnicodes - length xs + (c `elemIndex'` beforeChars)
-                                            charValue = calculateSimpleCharValueWithSpaceInfo unicodeInfo allUnicodes charPos c
-                                        in 0 : [charValue] ++ replicate 4 0) beforeChars
-                                
-                                let patLen = tpLength pat
-                                    split = tpSplitPoint pat
-                                    (firstColChars, nextColChars) = 
-                                        if split > 0 && split < patLen
-                                        then (take split seg, drop split seg)
-                                        else (seg, [])
-                                    -- パターン内文字は専用関数を使用（空白情報考慮）
-                                    firstColValues = map (\c -> 
-                                        let charPos = length allUnicodes - length xs + pos + (c `elemIndex'` firstColChars)
-                                        in calculateValueForPatternCharWithSpaceInfo unicodeInfo allUnicodes charPos c) firstColChars
-                                    firstColumn = 0 : firstColValues ++ replicate (5 - length firstColValues) 0
-                                
-                                let newAcc = reverse beforeColumns ++ acc
-                                if null nextColChars
-                                then go (drop (pos + patLen) xs) (firstColumn : newAcc)
-                                else do
-                                    let nextColValues = map (\c -> 
-                                            let charPos = length allUnicodes - length xs + pos + split + (c `elemIndex'` nextColChars)
-                                            in calculateValueForPatternCharWithSpaceInfo unicodeInfo allUnicodes charPos c) nextColChars
-                                        nextColumn = 0 : nextColValues ++ replicate (5 - length nextColValues) 0
-                                    go (drop (pos + patLen) xs) (nextColumn : firstColumn : newAcc)
-                            Nothing ->
-                                -- 個別文字処理（空白情報考慮）
-                                case xs of
-                                    (firstChar:restChars) -> do
-                                        let allUnicodes = map fst unicodeInfo
-                                            charPos = length allUnicodes - length xs
-                                            charValue = calculateSimpleCharValueWithSpaceInfo unicodeInfo allUnicodes charPos firstChar
-                                            singleCharColumn = 0 : [charValue] ++ replicate 4 0
-                                        go restChars (singleCharColumn : acc)
-
--- 修正版の文字列解析関数（空白情報考慮の強ダゲッシュ対応）
-analyzeStringForValuesWithSpaceInfo :: String -> IO ValueAnalysisResult
-analyzeStringForValuesWithSpaceInfo str = do
-    let unicodeInfo = convertToUnicodesWithSpaceInfo str
-    result <- processUnicodesForValuesWithSpaceInfo unicodeInfo
-    return result
-
--- ★ 最終修正版:空白情報を考慮した強ダゲッシュ対応のreal_value_new_improved
+-- ★ 修正版:real_len_advancedと完全対応する値解析関数
 real_value_new_improved :: CWString -> CInt -> CInt -> CInt -> IO CInt
 real_value_new_improved cws len_c elem1 elem2 = do
     result <- (do
@@ -1106,7 +944,7 @@ real_value_new_improved cws len_c elem1 elem2 = do
             then return (-997)
             else do
                 str <- peekCWStringLen (castPtr cws, fromIntegral len_c)
-                valueResult <- analyzeStringForValuesWithSpaceInfo str  -- 空白情報考慮版を使用
+                valueResult <- analyzeStringForValues str
                 let row = fromIntegral elem1
                     col = fromIntegral elem2
                 
@@ -1122,4 +960,3 @@ real_value_new_improved cws len_c elem1 elem2 = do
                     return (fromIntegral value)
         ) `catch` (\(_ :: SomeException) -> return (-998))
     return result
-
