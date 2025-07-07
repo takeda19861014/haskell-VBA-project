@@ -356,6 +356,12 @@ isDagesh x = x == 1468
 isCantillation :: Int -> Bool
 isCantillation x = (1425 <= x && x <= 1455) || (x == 1469)
 
+--ヘブライ語以外
+is547 :: Int -> Bool
+is547 x = x == 547
+
+is771 :: Int -> Bool
+is771 x = x == 771
 
 -- Hebrew用のパターン定義
 data HebrewPattern = HebrewPattern
@@ -433,9 +439,11 @@ allHebrewPatterns = [
 
      HebrewPattern "a_b_pattern" 2 [isHebrewConsonant, isHebrewVowelMark] 2,
      HebrewPattern "c_pattern" 2 [isShinLetter, isShinDotMark] 2,
-     HebrewPattern "k_l_pattern" 2 [isDagesh, isCantillation] 2
-     ]
+     HebrewPattern "k_l_pattern" 2 [isDagesh, isCantillation] 2,
      -- ヘブライ語以外
+     HebrewPattern "nonHebrewpattern" 2 [is547, is771] 2
+     ]
+     
      
 
 ---- スライディングウィンドウによる最長パターンマッチ
@@ -831,29 +839,32 @@ checkRomanPattern (8557:8544:390:_) = Just (1000, 3)
 checkRomanPattern (x:8544:390:_) 
   | x /= 8557 && (isArabicDigit x || isInMyDict x || isRomanNumeral x) = Just (500, 3)
 
--- 3. Ⅰ Ⅼ → 49（減算表記）
+-- 3. Ⅰ Ɔ → 500の特殊表記（2文字パターンとして追加）
+checkRomanPattern (8544:390:_) = Just (500, 2)
+
+-- 4. Ⅰ Ⅼ → 49（減算表記）
 checkRomanPattern (8544:8556:_) = Just (49, 2)
 
--- 4. Ⅰ Ⅹ → 9（減算表記）
+-- 5. Ⅰ Ⅹ → 9（減算表記）
 checkRomanPattern (8544:8553:_) = Just (9, 2)
 
--- 5. Ⅰ Ⅴ → 4（減算表記）
+-- 6. Ⅰ Ⅴ → 4（減算表記）
 checkRomanPattern (8544:8548:_) = Just (4, 2)
 
--- 6. Ⅹ Ⅼ → 40（減算表記）
+-- 7. Ⅹ Ⅼ → 40（減算表記）
 checkRomanPattern (8553:8556:_) = Just (40, 2)
 
--- 7. Ⅹ Ⅽ → 90（減算表記）
+-- 8. Ⅹ Ⅽ → 90（減算表記）
 checkRomanPattern (8553:8557:_) = Just (90, 2)
 
--- 8-12. 単一ローマ数字
+-- 9-13. 単一ローマ数字
 checkRomanPattern (8544:_) = Just (1, 1)   -- Ⅰ
 checkRomanPattern (8548:_) = Just (5, 1)   -- Ⅴ
 checkRomanPattern (8553:_) = Just (10, 1)  -- Ⅹ
 checkRomanPattern (8556:_) = Just (50, 1)  -- Ⅼ
 checkRomanPattern (8557:_) = Just (100, 1) -- Ⅽ
 
--- 13. Ɔ  → 0（特殊用途）
+-- 14. Ɔ  → 0（特殊用途）
 checkRomanPattern (390:_) = Just (0, 1)
 
 checkRomanPattern _ = Nothing
@@ -877,6 +888,9 @@ calculateIndividualRomanValues chars consumed totalValue = case (chars, consumed
                                 Just (Right v) -> v
                                 _ -> if isRomanNumeral first then getRomanValue first else 0
         in [firstCharValue, 500, 0]
+    
+    -- 場合3: Ⅰ Ɔ → 500 の特殊表記（2文字パターン）
+    (8544:390:_, 2, 500) -> [500, 0]
     
     -- 2文字の減算記法 - 修正版
     (first:second:_, 2, _) -> 
