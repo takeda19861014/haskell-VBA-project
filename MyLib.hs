@@ -356,6 +356,11 @@ isDagesh x = x == 1468
 isCantillation :: Int -> Bool
 isCantillation x = (1425 <= x && x <= 1455) || (x == 1469)
 
+is547 :: Int -> Bool
+is547 x = x == 547
+
+is771 :: Int -> Bool
+is771 x = x == 771
 
 -- Hebrew用のパターン定義
 data HebrewPattern = HebrewPattern
@@ -433,7 +438,8 @@ allHebrewPatterns = [
 
      HebrewPattern "a_b_pattern" 2 [isHebrewConsonant, isHebrewVowelMark] 2,
      HebrewPattern "c_pattern" 2 [isShinLetter, isShinDotMark] 2,
-     HebrewPattern "k_l_pattern" 2 [isDagesh, isCantillation] 2
+     HebrewPattern "k_l_pattern" 2 [isDagesh, isCantillation] 2,
+     HebrewPattern "nonHebrewpattern" 2 [is547, is771] 2
      ]
      -- ヘブライ語以外
      
