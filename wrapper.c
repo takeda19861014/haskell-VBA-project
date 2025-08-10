@@ -153,7 +153,7 @@ extern "C" {
 
         return real_value_new_improved(s, len_c, elem1, elem2);
     }
-    
+
     __declspec(dllexport) int __stdcall initialize_haskell() {
         return ensure_hs_initialized() ? 1 : 0;
     }

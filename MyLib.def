@@ -7,4 +7,4 @@ EXPORTS
     initialize_haskell
     real_len
     real_len_advanced
-    real_value_new_improved
+    real_value_new_improved  
