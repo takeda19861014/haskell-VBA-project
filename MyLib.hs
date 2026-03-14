@@ -7,6 +7,7 @@ import Foreign.C.String (CWString, peekCWStringLen)
 import qualified Data.Map.Strict as Map
 import Data.Char (isSpace, ord, chr)
 import Control.Exception (catch, SomeException)
+import qualified Data.Vector.Unboxed as V
 
 -- エクスポート
 foreign export ccall real_len :: CWString -> CInt -> CInt -> CInt -> IO CInt
@@ -71,6 +72,7 @@ myDict = Map.fromList [
  (89, Right 25),
  (90, Right 26),
  (91, Right 1),
+ (92, Right 1),
  (93, Right 1),
  (96, Right 1),
  (97, Right 1),
@@ -101,6 +103,8 @@ myDict = Map.fromList [
  (122, Right 26),
  (167, Right 38),
  (171, Right 1),
+ (176, Right 1),
+ (182, Right 16),
  (183, Right 1),
  (187, Right 1),
  (192, Right 1),
@@ -130,6 +134,7 @@ myDict = Map.fromList [
  (226, Right 1),
  (228, Right 1),
  (230, Right 6),
+ (231, Right 3),
  (232, Right 5),
  (233, Right 5),
  (234, Right 5),
@@ -146,8 +151,13 @@ myDict = Map.fromList [
  (250, Right 21),
  (251, Right 21),
  (252, Right 21),
+ (255, Right 25),
+ (256, Right 1),
+ (281, Right 5),
+ (335, Right 15),
  (338, Right 20),
  (339, Right 20),
+ (363, Right 34),
  (383, Right 19),
  (390, Left "R"),
  (419, Right 17),
@@ -338,8 +348,265 @@ myDict = Map.fromList [
  (9644, Right 1),
  (9678, Right 33),
  (9679, Right 0),
+ (12289, Right 1), 
+ (12290, Right 1),
  (12291, Right 1),
- (65293, Right 1)
+ (12292, Right 1),
+ (12293, Right 1),
+ (12294, Right 1),
+ (12295, Right 1),
+ (12296, Right 1),
+ (12297, Right 1),
+ (12298, Right 1),
+ (12299, Right 1),
+ (12300, Right 1),
+ (12301, Right 1),
+ (12302, Right 1),
+ (12303, Right 1),
+ (12304, Right 1),
+ (12305, Right 1),
+ (12306, Right 1),
+ (12307, Right 1),
+ (12308, Right 1),
+ (12309, Right 1),
+ (12310, Right 1),
+ (12311, Right 1),
+ (12312, Right 1),
+ (12313, Right 1),
+ (12314, Right 1),
+ (12315, Right 1),
+ (12316, Right 1),
+ (12317, Right 1),
+ (12318, Right 1),
+ (12319, Right 1),
+ (12320, Right 1),
+ (12321, Right 1),
+ (12322, Right 1),
+ (12323, Right 1),
+ (12324, Right 1),
+ (12325, Right 1),
+ (12326, Right 1),
+ (12327, Right 1),
+ (12328, Right 1),
+ (12329, Right 1),
+ (12330, Right 1),
+ (12331, Right 1),
+ (12332, Right 1),
+ (12333, Right 1),
+ (12334, Right 1),
+ (12335, Right 1),
+ (12336, Right 1),
+ (12337, Right 1),
+ (12338, Right 1),
+ (12339, Right 1),
+ (12340, Right 1),
+ (12341, Right 1),
+ (12342, Right 1),
+ (12343, Right 1),
+ (12344, Right 1),
+ (12345, Right 1),
+ (12346, Right 1),
+ (12347, Right 1),
+ (12348, Right 1),
+ (12349, Right 1),
+ (12350, Right 1),
+ (12351, Right 1),
+ (12352, Right 1),
+ (12354, Right 1),
+ (12355, Right 2),
+ (12356, Right 2),
+ (12357, Right 3),
+ (12358, Right 3),
+ (12359, Right 4),
+ (12360, Right 4),
+ (12361, Right 5),
+ (12362, Right 5),
+ (12363, Right 6),
+ (12364, Right 7),
+ (12365, Right 7),
+ (12366, Right 8),
+ (12367, Right 8),
+ (12368, Right 9),
+ (12369, Right 9),
+ (12370, Right 10),
+ (12371, Right 10),
+ (12372, Right 11),
+ (12373, Right 11),
+ (12374, Right 12),
+ (12375, Right 12),
+ (12376, Right 13),
+ (12377, Right 13),
+ (12378, Right 14),
+ (12379, Right 14),
+ (12380, Right 15),
+ (12381, Right 15),
+ (12382, Right 16),
+ (12383, Right 16),
+ (12384, Right 17),
+ (12385, Right 17),
+ (12386, Right 18),
+ (12387, Right 18),
+ (12388, Right 18),
+ (12389, Right 19),
+ (12390, Right 19),
+ (12391, Right 20),
+ (12392, Right 20),
+ (12393, Right 21),
+ (12394, Right 21),
+ (12395, Right 22),
+ (12396, Right 23),
+ (12397, Right 24),
+ (12398, Right 25),
+ (12399, Right 26),
+ (12400, Right 27),
+ (12401, Right 27),
+ (12402, Right 27),
+ (12403, Right 28),
+ (12404, Right 28),
+ (12405, Right 28),
+ (12406, Right 29),
+ (12407, Right 29),
+ (12408, Right 29),
+ (12409, Right 30),
+ (12410, Right 30),
+ (12411, Right 30),
+ (12412, Right 31),
+ (12413, Right 31),
+ (12414, Right 31),
+ (12415, Right 32),
+ (12416, Right 33),
+ (12417, Right 34),
+ (12418, Right 35),
+ (12419, Right 36),
+ (12420, Right 36),
+ (12421, Right 38),
+ (12422, Right 38),
+ (12423, Right 40),
+ (12424, Right 40),
+ (12425, Right 41),
+ (12426, Right 42),
+ (12427, Right 43),
+ (12428, Right 44),
+ (12429, Right 45),
+ (12430, Right 46),
+ (12431, Right 46),
+ (12432, Right 37),
+ (12433, Right 39),
+ (12434, Right 48),
+ (12435, Right 50),
+ (12436, Right 4),
+ (12437, Right 6),
+ (12438, Right 9),
+ (12439, Right 0),
+ (12440, Right 0),
+ (12441, Right 0),
+ (12442, Right 0),
+ (12443, Right 0),
+ (12444, Right 0),
+ (12445, Right 1),
+ (12446, Right 1),
+ (12447, Right 1),
+ (12448, Right 1),
+ (12449, Right 1),
+ (12450, Right 1),
+ (12451, Right 2),
+ (12452, Right 2),
+ (12453, Right 3),
+ (12454, Right 3),
+ (12455, Right 4),
+ (12456, Right 4),
+ (12457, Right 5),
+ (12458, Right 5),
+ (12459, Right 6),
+ (12460, Right 7),
+ (12461, Right 7),
+ (12462, Right 8),
+ (12463, Right 8),
+ (12464, Right 9),
+ (12465, Right 9),
+ (12466, Right 10),
+ (12467, Right 10),
+ (12468, Right 11),
+ (12469, Right 11),
+ (12470, Right 12),
+ (12471, Right 12),
+ (12472, Right 13),
+ (12473, Right 13),
+ (12474, Right 14),
+ (12475, Right 14),
+ (12476, Right 15),
+ (12477, Right 15),
+ (12478, Right 16),
+ (12479, Right 16),
+ (12480, Right 17),
+ (12481, Right 17),
+ (12482, Right 18),
+ (12483, Right 18),
+ (12484, Right 18),
+ (12485, Right 19),
+ (12486, Right 19),
+ (12487, Right 20),
+ (12488, Right 20),
+ (12489, Right 21),
+ (12490, Right 21),
+ (12491, Right 22),
+ (12492, Right 23),
+ (12493, Right 24),
+ (12494, Right 25),
+ (12495, Right 26),
+ (12496, Right 27),
+ (12497, Right 27),
+ (12498, Right 27),
+ (12499, Right 28),
+ (12500, Right 28),
+ (12501, Right 28),
+ (12502, Right 29),
+ (12503, Right 29),
+ (12504, Right 29),
+ (12505, Right 30),
+ (12506, Right 30),
+ (12507, Right 30),
+ (12508, Right 31),
+ (12509, Right 31),
+ (12510, Right 31),
+ (12511, Right 32),
+ (12512, Right 33),
+ (12513, Right 34),
+ (12514, Right 35),
+ (12515, Right 36),
+ (12516, Right 36),
+ (12517, Right 38),
+ (12518, Right 38),
+ (12519, Right 40),
+ (12520, Right 40),
+ (12521, Right 41),
+ (12522, Right 42),
+ (12523, Right 43),
+ (12524, Right 44),
+ (12525, Right 45),
+ (12526, Right 46),
+ (12527, Right 46),
+ (12528, Right 37),
+ (12529, Right 39),
+ (12530, Right 48),
+ (12531, Right 50),
+ (12532, Right 4),
+ (12533, Right 6),
+ (12534, Right 9),
+ (12535, Right 47),
+ (12536, Right 38),
+ (12537, Right 39),
+ (12538, Right 49),
+ (12539, Right 1),
+ (12540, Right 1),
+ (12541, Right 1),
+ (12542, Right 1),
+ (12543, Right 1),
+ (42841, Right 43),
+ (65288, Right 1),
+ (65289, Right 1),
+ (65293, Right 1),
+ (65306, Right 1)
   ]
 
 -- ヘブライ語文字種判定(より安全に・通番関数で再定義)
@@ -539,7 +806,7 @@ findLongestPatternSliding patterns xs =
     in tryAllPositions 0
 
 -- スライディングウィンドウ方式で解析
-processUnicodesWithPatternMatching :: [Int] -> IO AnalysisResult
+processUnicodesWithPatternMatching :: V.Vector Int -> IO AnalysisResult
 processUnicodesWithPatternMatching unicodes = 
     let processChunk :: [Int] -> Int -> [[Int]] -> IO AnalysisResult
         processChunk [] _ acc = return $ AnalysisResult (reverse acc) (length acc)
@@ -574,13 +841,13 @@ processUnicodesWithPatternMatching unicodes =
                     let singleCharColumn = 0 : [c] ++ replicate 4 0
                     processChunk rest (startPos + 1) (singleCharColumn : acc)
     
-    in processChunk unicodes 0 []
+    in processChunk (V.toList unicodes) 0 []
 
 
-processUnicodesInBatches :: [Int] -> Int -> IO AnalysisResult
+processUnicodesInBatches :: V.Vector Int -> Int -> IO AnalysisResult
 processUnicodesInBatches unicodes batchSize = do
-    let batches = chunksOf batchSize unicodes
-    results <- mapM processUnicodesWithPatternMatching batches
+    let batches = chunksOf batchSize (V.toList unicodes)
+    results <- mapM (processUnicodesWithPatternMatching . V.fromList) batches
     let combinedColumns = concatMap columns results
         totalColumns = length combinedColumns
     return $ AnalysisResult combinedColumns totalColumns
@@ -640,11 +907,11 @@ real_len_advanced cws len_c elem1 elem2 = do
             then return (-1)
             else do
                 str <- peekCWStringLen (castPtr cws, fromIntegral len_c)
-                let unicodes = map ord (filter (not . isSpace) str)
+                let unicodes = V.fromList (map ord (filter (not . isSpace) str))
                 
                 -- バッチサイズを動的に調整
-                let batchSize = max 1000 (length unicodes `div` 10)
-                analysisResult <- if length unicodes > 5000
+                let batchSize = max 1000 (V.length unicodes `div` 10)
+                analysisResult <- if V.length unicodes > 5000
                     then processUnicodesInBatches unicodes batchSize
                     else processUnicodesWithPatternMatching unicodes
                 
@@ -726,13 +993,13 @@ getCharValue char
 analyzeStringForValues :: String -> IO ValueAnalysisResult
 analyzeStringForValues str = do
     let strNoSpaces = filter (not . isSpace) str
-        unicodes = map ord strNoSpaces
+        unicodes = V.fromList (map ord str)
     result <- processUnicodesForValues unicodes
     return result
 
 -- ★ :Unicode処理(real_len_advancedのロジックを値計算用に変更)
-processUnicodesForValues :: [Int] -> IO ValueAnalysisResult
-processUnicodesForValues unicodes = go unicodes []
+processUnicodesForValues :: V.Vector Int -> IO ValueAnalysisResult
+processUnicodesForValues unicodes = go (V.toList unicodes) []
   where
     go [] acc = return $ ValueAnalysisResult (reverse acc) (length acc)
     go xs acc = do
@@ -760,7 +1027,7 @@ processUnicodesForValues unicodes = go unicodes []
                                 -- パターンマッチ前の文字を個別処理（修正）
                                 let beforeChars = take pos xs
                                     beforeColumns = map (\c -> 
-                                        let charPos = length unicodes - length xs + (c `elemIndex'` beforeChars)
+                                        let charPos = V.length unicodes - length xs + (c `elemIndex'` beforeChars)
                                             charValue = calculateSimpleCharValue unicodes charPos c
                                         in 0 : [charValue] ++ replicate 4 0) beforeChars
                                 
@@ -772,7 +1039,7 @@ processUnicodesForValues unicodes = go unicodes []
                                         else (seg, [])
                                     -- パターン内文字は専用関数を使用
                                     firstColValues = map (\c -> 
-                                        let charPos = length unicodes - length xs + pos + (c `elemIndex'` firstColChars)
+                                        let charPos = V.length unicodes - length xs + pos + (c `elemIndex'` firstColChars)
                                         in calculateValueForPatternChar unicodes charPos c) firstColChars
                                     firstColumn = 0 : firstColValues ++ replicate (5 - length firstColValues) 0
                                 
@@ -781,7 +1048,7 @@ processUnicodesForValues unicodes = go unicodes []
                                 then go (drop (pos + patLen) xs) (firstColumn : newAcc)
                                 else do
                                     let nextColValues = map (\c -> 
-                                            let charPos = length unicodes - length xs + pos + split + (c `elemIndex'` nextColChars)
+                                            let charPos = V.length unicodes - length xs + pos + split + (c `elemIndex'` nextColChars)
                                             in calculateValueForPatternChar unicodes charPos c) nextColChars
                                         nextColumn = 0 : nextColValues ++ replicate (5 - length nextColValues) 0
                                     go (drop (pos + patLen) xs) (nextColumn : firstColumn : newAcc)
@@ -789,7 +1056,7 @@ processUnicodesForValues unicodes = go unicodes []
                                 -- 個別文字処理（修正）
                                 case xs of
                                     (firstChar:restChars) -> do
-                                        let charPos = length unicodes - length xs
+                                        let charPos = V.length unicodes - length xs
                                             charValue = calculateSimpleCharValue unicodes charPos firstChar
                                             singleCharColumn = 0 : [charValue] ++ replicate 4 0
                                         go restChars (singleCharColumn : acc)
@@ -806,22 +1073,22 @@ elemIndex' x xs = case elemIndex x xs of
         | otherwise = fmap (+1) (elemIndex y zs)
 
 -- ★ より高度な処理:文字列全体での位取り・パターン計算
-processSpecialCharsAdvanced :: [Int] -> [Int] -> Int -> [Int]
+processSpecialCharsAdvanced :: V.Vector Int -> [Int] -> Int -> [Int]
 processSpecialCharsAdvanced allUnicodes chars startPos =     
     map (\(char, offset) -> calculateValueForPatternChar allUnicodes (startPos + offset) char) 
         (zip chars [0..])
 
 
 -- ★ 高度な値計算(位取り・ローマ数字パターン対応)
-calculateValueForPatternChar :: [Int] -> Int -> Int -> Int
+calculateValueForPatternChar :: V.Vector Int -> Int -> Int -> Int
 calculateValueForPatternChar allUnicodes pos char
-    | pos < 0 || pos >= length allUnicodes = 0
+    | pos < 0 || pos >= V.length allUnicodes = 0
     | isArabicDigit char = calculateDigitValue allUnicodes pos
     | otherwise = getCharValue char  -- 辞書参照のみ、ローマ数字の特殊処理は行わない
 
-calculateSimpleCharValue :: [Int] -> Int -> Int -> Int
+calculateSimpleCharValue :: V.Vector Int -> Int -> Int -> Int
 calculateSimpleCharValue allUnicodes pos char
-    | pos < 0 || pos >= length allUnicodes = 0
+    | pos < 0 || pos >= V.length allUnicodes = 0
     | isArabicDigit char = calculateDigitValue allUnicodes pos
     | otherwise = getCharValue char  -- 辞書参照のみ
 
@@ -850,11 +1117,11 @@ getRomanValue x = case x of
     _ -> 0
 
 -- 文字ごとの値変換(位取りを考慮,ローマ数字の分岐処理対応)
-charToValueWithPosition :: [Int] -> Int -> Int
+charToValueWithPosition :: V.Vector Int -> Int -> Int
 charToValueWithPosition allUnicodes pos
-    | pos < 0 || pos >= length allUnicodes = 0
+    | pos < 0 || pos >= V.length allUnicodes = 0
     | otherwise = 
-        let currentChar = allUnicodes !! pos
+        let currentChar = allUnicodes V.! pos
         in if isArabicDigit currentChar
            then calculateDigitValue allUnicodes pos
            else if isRomanNumeral currentChar
@@ -862,9 +1129,9 @@ charToValueWithPosition allUnicodes pos
            else getSingleCharValueSimple currentChar
 
 -- アラビア数字の位取り計算(前後の文字を考慮)
-calculateDigitValue :: [Int] -> Int -> Int
+calculateDigitValue :: V.Vector Int -> Int -> Int
 calculateDigitValue unicodes pos = 
-    let currentChar = unicodes !! pos
+    let currentChar = unicodes V.! pos
         digitValue = getArabicValue currentChar
         
         -- 連続する数字のシーケンスを特定
@@ -881,14 +1148,14 @@ calculateDigitValue unicodes pos =
        else digitValue
 
 -- ローマ数字の値計算(パターンマッチングによる分岐処理)
-calculateRomanValue :: [Int] -> Int -> Int
+calculateRomanValue :: V.Vector Int -> Int -> Int
 calculateRomanValue unicodes pos
-    | pos >= length unicodes = 0
+    | pos >= V.length unicodes = 0
     | otherwise = 
-        let remaining = drop pos unicodes
+        let remaining = V.toList (V.drop pos unicodes)
         in case checkRomanPattern remaining of
             Just (value, _) -> value
-            Nothing -> getSingleCharValueSimple (unicodes !! pos)
+            Nothing -> getSingleCharValueSimple (unicodes V.! pos)
 
 -- ローマ数字パターンの確認
 checkRomanPattern :: [Int] -> Maybe (Int, Int)  -- (値, 消費文字数)
@@ -972,28 +1239,28 @@ calculateIndividualRomanValues chars consumed totalValue = case (chars, consumed
     _ -> [totalValue]
    
 -- 連続数字シーケンスの開始位置と文字列を取得
-getDigitSequence :: [Int] -> Int -> (Int, [Int])
+getDigitSequence :: V.Vector Int -> Int -> (Int, [Int])
 getDigitSequence unicodes pos = 
     let -- 後方検索：シーケンスの開始を見つける
         startPos = findSequenceStart unicodes pos
         -- 前方検索：シーケンスの終了を見つける  
         endPos = findSequenceEnd unicodes startPos
-        sequence = take (endPos - startPos + 1) (drop startPos unicodes)
+        sequence = V.toList (V.slice startPos (endPos - startPos + 1) unicodes)
     in (startPos, sequence)
 
 -- 数字シーケンスの開始位置を見つける
-findSequenceStart :: [Int] -> Int -> Int
+findSequenceStart :: V.Vector Int -> Int -> Int
 findSequenceStart unicodes pos
     | pos <= 0 = 0
-    | pos >= length unicodes = pos
-    | isArabicDigit (unicodes !! (pos - 1)) = findSequenceStart unicodes (pos - 1)
+    | pos >= V.length unicodes = pos
+    | isArabicDigit (unicodes V.! (pos - 1)) = findSequenceStart unicodes (pos - 1)
     | otherwise = pos
 
 -- 数字シーケンスの終了位置を見つける
-findSequenceEnd :: [Int] -> Int -> Int
+findSequenceEnd :: V.Vector Int -> Int -> Int
 findSequenceEnd unicodes pos
-    | pos >= length unicodes - 1 = length unicodes - 1
-    | isArabicDigit (unicodes !! (pos + 1)) = findSequenceEnd unicodes (pos + 1)
+    | pos >= V.length unicodes - 1 = V.length unicodes - 1
+    | isArabicDigit (unicodes V.! (pos + 1)) = findSequenceEnd unicodes (pos + 1)
     | otherwise = pos
 
 -- 単一文字の値(数字以外)
