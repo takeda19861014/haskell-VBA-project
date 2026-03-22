@@ -14,6 +14,8 @@ foreign export ccall real_len :: CWString -> CInt -> CInt -> CInt -> IO CInt
 foreign export ccall real_len_advanced :: CWString -> CInt -> CInt -> CInt -> IO CInt
 foreign export ccall real_value_new_improved :: CWString -> CInt -> CInt -> CInt -> IO CInt
 foreign export ccall get_all_composites :: CWString -> CInt -> Ptr CInt -> CInt -> IO CInt
+foreign export ccall process_batch :: CWString -> CInt -> Ptr CInt -> CInt -> IO CInt
+foreign export ccall process_batch_value :: CWString -> CInt -> Ptr CInt -> CInt -> IO CInt
 
 -- Mapの値をEither String Int型にする
 myDict :: Map.Map Int (Either String Int)
@@ -1316,3 +1318,59 @@ get_all_composites cws len_c buf bufSize = do
                 return (fromIntegral numCols)
         ) `catch` (\(_ :: SomeException) -> return (-998))
     return result
+
+process_batch :: CWString -> CInt -> Ptr CInt -> CInt -> IO CInt
+process_batch cws len_c buf bufSize = do
+    result <- (do
+        if cws == nullPtr || buf == nullPtr
+            then return (-1)
+            else do
+                str <- peekCWStringLen (castPtr cws, fromIntegral len_c)
+                let cells = splitOn (chr 31) str
+                    validCells = filter (not . null) cells
+                results <- mapM processCellIO validCells
+                let writeCount = min (fromIntegral bufSize) (length results)
+                mapM_ (\i -> pokeElemOff buf i (fromIntegral (results !! i))) [0..writeCount-1]
+                return (fromIntegral writeCount)
+        ) `catch` (\(_ :: SomeException) -> return (-998))
+    return result
+
+processCellIO :: String -> IO Int
+processCellIO str = do
+    let unicodes = V.fromList (map ord (filter (not . isSpace) str))
+    analysisResult <- processUnicodesWithPatternMatching unicodes
+    let totalColumns = totalCols analysisResult
+        validColumns = length $ filter (\colIdx ->
+            let colValue = getValueAtImproved analysisResult 2 colIdx
+            in colValue /= 0 && colValue /= -999 && colValue /= -998 && colValue /= -1) [1..totalColumns]
+    return validColumns
+
+splitOn :: Char -> String -> [String]
+splitOn _ [] = [""]
+splitOn delim (c:cs)
+    | c == delim = "" : rest
+    | otherwise  = (c : head rest) : tail rest
+    where rest = splitOn delim cs
+
+process_batch_value :: CWString -> CInt -> Ptr CInt -> CInt -> IO CInt
+process_batch_value cws len_c buf bufSize = do
+    result <- (do
+        if cws == nullPtr || buf == nullPtr
+            then return (-1)
+            else do
+                str <- peekCWStringLen (castPtr cws, fromIntegral len_c)
+                let cells = splitOn (chr 31) str
+                    validCells = filter (not . null) cells
+                results <- mapM processCellValueIO validCells
+                let writeCount = min (fromIntegral bufSize) (length results)
+                mapM_ (\i -> pokeElemOff buf i (fromIntegral (results !! i))) [0..writeCount-1]
+                return (fromIntegral writeCount)
+        ) `catch` (\(_ :: SomeException) -> return (-998))
+    return result
+
+processCellValueIO :: String -> IO Int
+processCellValueIO str = do
+    valueResult <- analyzeStringForValues str
+    let allValues = concatMap (filter (/= 0)) (valueColumns valueResult)
+        totalSum = sum allValues
+    return totalSum

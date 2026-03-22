@@ -175,3 +175,31 @@ extern "C" {
 
     return get_all_composites(s, len_c, buf, bufSize);
 }
+    __declspec(dllexport) HsInt32 __stdcall process_batch_wrapper(
+        const wchar_t* s, HsInt32 len_c, HsInt32* buf, HsInt32 bufSize) {
+
+        if (!ensure_hs_initialized()) {
+            OutputDebugStringA("process_batch_wrapper: 初期化失敗\n");
+            return -999;
+        }
+
+        if (s == NULL || buf == NULL) {
+            return -1;
+        }
+
+        return process_batch(s, len_c, buf, bufSize);
+    }
+    __declspec(dllexport) HsInt32 __stdcall process_batch_value_wrapper(
+        const wchar_t* s, HsInt32 len_c, HsInt32* buf, HsInt32 bufSize) {
+
+        if (!ensure_hs_initialized()) {
+            OutputDebugStringA("process_batch_value_wrapper: 初期化失敗\n");
+            return -999;
+        }
+
+        if (s == NULL || buf == NULL) {
+            return -1;
+        }
+
+        return process_batch_value(s, len_c, buf, bufSize);
+    }

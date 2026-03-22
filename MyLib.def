@@ -9,3 +9,5 @@ EXPORTS
     real_len_advanced
     real_value_new_improved  
     get_all_composites_wrapper
+    process_batch_wrapper
+    process_batch_value_wrapper
