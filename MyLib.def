@@ -8,3 +8,4 @@ EXPORTS
     real_len
     real_len_advanced
     real_value_new_improved  
+    get_all_composites_wrapper

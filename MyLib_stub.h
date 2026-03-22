@@ -5,6 +5,7 @@ extern "C" {
 extern HsInt32 real_len(HsPtr a1, HsInt32 a2, HsInt32 a3, HsInt32 a4);
 extern HsInt32 real_len_advanced(HsPtr a1, HsInt32 a2, HsInt32 a3, HsInt32 a4);
 extern HsInt32 real_value_new_improved(HsPtr a1, HsInt32 a2, HsInt32 a3, HsInt32 a4);
+extern HsInt32 get_all_composites(HsPtr a1, HsInt32 a2, HsPtr a3, HsInt32 a4);
 #if defined(__cplusplus)
 }
 #endif

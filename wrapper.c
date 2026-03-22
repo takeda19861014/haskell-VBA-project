@@ -160,3 +160,18 @@ extern "C" {
 #ifdef __cplusplus
 }
 #endif
+
+    __declspec(dllexport) HsInt32 __stdcall get_all_composites_wrapper(
+    const wchar_t* s, HsInt32 len_c, HsInt32* buf, HsInt32 bufSize) {
+
+    if (!ensure_hs_initialized()) {
+        OutputDebugStringA("get_all_composites_wrapper: 初期化失敗\n");
+        return -999;
+    }
+
+    if (s == NULL || buf == NULL) {
+        return -1;
+    }
+
+    return get_all_composites(s, len_c, buf, bufSize);
+}

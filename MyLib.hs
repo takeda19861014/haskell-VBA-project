@@ -13,6 +13,7 @@ import qualified Data.Vector.Unboxed as V
 foreign export ccall real_len :: CWString -> CInt -> CInt -> CInt -> IO CInt
 foreign export ccall real_len_advanced :: CWString -> CInt -> CInt -> CInt -> IO CInt
 foreign export ccall real_value_new_improved :: CWString -> CInt -> CInt -> CInt -> IO CInt
+foreign export ccall get_all_composites :: CWString -> CInt -> Ptr CInt -> CInt -> IO CInt
 
 -- Mapの値をEither String Int型にする
 myDict :: Map.Map Int (Either String Int)
@@ -1293,5 +1294,25 @@ real_value_new_improved cws len_c elem1 elem2 = do
                 else do
                     let value = getValueAtPosition valueResult row col
                     return (fromIntegral value)
+        ) `catch` (\(_ :: SomeException) -> return (-998))
+    return result
+
+get_all_composites :: CWString -> CInt -> Ptr CInt -> CInt -> IO CInt
+get_all_composites cws len_c buf bufSize = do
+    result <- (do
+        if cws == nullPtr || buf == nullPtr
+            then return (-1)
+            else do
+                str <- peekCWStringLen (castPtr cws, fromIntegral len_c)
+                let unicodes = V.fromList (map ord (filter (not . isSpace) str))
+                analysisResult <- processUnicodesWithPatternMatching unicodes
+                let cols = columns analysisResult
+                    numCols = min (fromIntegral bufSize `div` 6) (length cols)
+                    allVals = concatMap (\colData -> 
+                        take 6 (colData ++ repeat 0)
+                        ) (take numCols cols)
+                    writeCount = numCols * 6
+                mapM_ (\i -> pokeElemOff buf i (fromIntegral (allVals !! i))) [0..writeCount-1]
+                return (fromIntegral numCols)
         ) `catch` (\(_ :: SomeException) -> return (-998))
     return result
