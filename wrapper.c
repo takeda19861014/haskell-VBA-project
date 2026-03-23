@@ -15,6 +15,9 @@ extern "C" {
     extern HsInt32 real_len(const wchar_t* s, HsInt32 len_c, HsInt32 elem1, HsInt32 elem2);
     extern HsInt32 real_len_advanced(const wchar_t* s, HsInt32 len_c, HsInt32 elem1, HsInt32 elem2);
     extern HsInt32 real_value_new_improved(const wchar_t* s, HsInt32 len_c, HsInt32 elem1, HsInt32 elem2);
+    extern HsInt32 get_all_composites(const wchar_t* s, HsInt32 len_c, HsInt32* buf, HsInt32 bufSize);
+    extern HsInt32 process_batch(const wchar_t* s, HsInt32 len_c, HsInt32* buf, HsInt32 bufSize);
+    extern HsInt32 process_batch_value(const wchar_t* s, HsInt32 len_c, HsInt32* buf, HsInt32 bufSize);
 
     // グローバル変数（既存のコードスタイルを維持）
     static volatile int g_hs_initialized = 0;
@@ -157,9 +160,7 @@ extern "C" {
     __declspec(dllexport) int __stdcall initialize_haskell() {
         return ensure_hs_initialized() ? 1 : 0;
     }
-#ifdef __cplusplus
-}
-#endif
+
 
     __declspec(dllexport) HsInt32 __stdcall get_all_composites_wrapper(
     const wchar_t* s, HsInt32 len_c, HsInt32* buf, HsInt32 bufSize) {
@@ -203,3 +204,6 @@ extern "C" {
 
         return process_batch_value(s, len_c, buf, bufSize);
     }
+#ifdef __cplusplus
+}
+#endif
