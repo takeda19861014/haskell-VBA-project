@@ -8,6 +8,7 @@ import qualified Data.Map.Strict as Map
 import Data.Char (isSpace, ord, chr)
 import Control.Exception (catch, SomeException)
 import qualified Data.Vector.Unboxed as V
+import Control.Concurrent.Async (mapConcurrently)
 
 -- エクスポート
 foreign export ccall real_len :: CWString -> CInt -> CInt -> CInt -> IO CInt
@@ -1328,7 +1329,7 @@ process_batch cws len_c buf bufSize = do
                 str <- peekCWStringLen (castPtr cws, fromIntegral len_c)
                 let cells = splitOn (chr 31) str
                     validCells = filter (not . null) cells
-                results <- mapM processCellIO validCells
+                results <- mapConcurrently processCellValueIO validCells
                 let writeCount = min (fromIntegral bufSize) (length results)
                 mapM_ (\i -> pokeElemOff buf i (fromIntegral (results !! i))) [0..writeCount-1]
                 return (fromIntegral writeCount)
