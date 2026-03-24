@@ -9,6 +9,8 @@ import Data.Char (isSpace, ord, chr)
 import Control.Exception (catch, SomeException)
 import qualified Data.Vector.Unboxed as V
 import Control.Concurrent.Async (mapConcurrently)
+import Data.IORef (IORef, newIORef, readIORef, modifyIORef')
+import System.IO.Unsafe (unsafePerformIO)
 
 -- エクスポート
 foreign export ccall real_len :: CWString -> CInt -> CInt -> CInt -> IO CInt
@@ -1338,13 +1340,24 @@ process_batch cws len_c buf bufSize = do
 
 processCellIO :: String -> IO Int
 processCellIO str = do
-    let unicodes = V.fromList (map ord (filter (not . isSpace) str))
-    analysisResult <- processUnicodesWithPatternMatching unicodes
-    let totalColumns = totalCols analysisResult
-        validColumns = length $ filter (\colIdx ->
-            let colValue = getValueAtImproved analysisResult 2 colIdx
-            in colValue /= 0 && colValue /= -999 && colValue /= -998 && colValue /= -1) [1..totalColumns]
-    return validColumns
+    cache <- readIORef cellCache
+    case Map.lookup str cache of
+        Just result -> return result
+        Nothing -> do
+            let unicodes = V.fromList (map ord (filter (not . isSpace) str))
+            analysisResult <- processUnicodesWithPatternMatching unicodes
+            let totalColumns = totalCols analysisResult
+                validColumns = length $ filter (\colIdx ->
+                    let colValue = getValueAtImproved analysisResult 2 colIdx
+                    in colValue /= 0 && colValue /= -999 && colValue /= -998 && colValue /= -1) [1..totalColumns]
+            modifyIORef' cellCache (Map.insert str validColumns)
+            return validColumns
+
+cellCache :: IORef (Map.Map String Int)
+cellCache = unsafePerformIO (newIORef Map.empty)
+
+cellValueCache :: IORef (Map.Map String Int)
+cellValueCache = unsafePerformIO (newIORef Map.empty)
 
 splitOn :: Char -> String -> [String]
 splitOn _ [] = [""]
@@ -1371,7 +1384,12 @@ process_batch_value cws len_c buf bufSize = do
 
 processCellValueIO :: String -> IO Int
 processCellValueIO str = do
-    valueResult <- analyzeStringForValues str
-    let allValues = concatMap (filter (/= 0)) (valueColumns valueResult)
-        totalSum = sum allValues
-    return totalSum
+    cache <- readIORef cellValueCache
+    case Map.lookup str cache of
+        Just result -> return result
+        Nothing -> do
+            valueResult <- analyzeStringForValues str
+            let allValues = concatMap (filter (/= 0)) (valueColumns valueResult)
+                totalSum = sum allValues
+            modifyIORef' cellValueCache (Map.insert str totalSum)
+            return totalSum
