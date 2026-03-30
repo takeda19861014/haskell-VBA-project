@@ -913,7 +913,7 @@ real_len_advanced cws len_c elem1 elem2 = do
             then return (-1)
             else do
                 str <- peekCWStringLen (castPtr cws, fromIntegral len_c)
-                let unicodes = V.fromList (map ord (filter (not . isSpace) str))
+                let unicodes = V.fromList (map ord str)
                 
                 -- バッチサイズを動的に調整
                 let batchSize = max 1000 (V.length unicodes `div` 10)
@@ -959,7 +959,7 @@ real_len cws len_c elem1 elem2 = do
             else do
                 str <- peekCWStringLen (castPtr cws, fromIntegral len_c)
                 
-                let strNoSpaces = filter (not . isSpace) str
+                let strNoSpaces = str
                     idx = fromIntegral elem2 - 1
                 case strNoSpaces of
                     [] -> do
@@ -998,7 +998,7 @@ getCharValue char
 -- ★ :real_len_advancedと対応する値解析
 analyzeStringForValues :: String -> IO ValueAnalysisResult
 analyzeStringForValues str = do
-    let strNoSpaces = filter (not . isSpace) str
+    let strNoSpaces = str
         unicodes = V.fromList (map ord str)
     result <- processUnicodesForValues unicodes
     return result
@@ -1309,7 +1309,7 @@ get_all_composites cws len_c buf bufSize = do
             then return (-1)
             else do
                 str <- peekCWStringLen (castPtr cws, fromIntegral len_c)
-                let unicodes = V.fromList (map ord (filter (not . isSpace) str))
+                let unicodes = V.fromList (map ord str)
                 analysisResult <- processUnicodesWithPatternMatching unicodes
                 let cols = columns analysisResult
                     numCols = min (fromIntegral bufSize `div` 6) (length cols)
@@ -1352,7 +1352,7 @@ processCellIO str = do
     case Map.lookup str cache of
         Just result -> return result
         Nothing -> do
-            let unicodes = V.fromList (map ord (filter (not . isSpace) str))
+            let unicodes = V.fromList (map ord str)
             analysisResult <- processUnicodesWithPatternMatching unicodes
             let totalColumns = totalCols analysisResult
                 validColumns = length $ filter (\colIdx ->
