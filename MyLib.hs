@@ -8,7 +8,7 @@ import qualified Data.Map.Strict as Map
 import Data.Char (isSpace, ord, chr)
 import Control.Exception (catch, SomeException)
 import qualified Data.Vector.Unboxed as V
-import Control.Concurrent.Async (mapConcurrently)
+import Control.Concurrent.Async (mapConcurrently, concurrently)
 import Data.IORef (IORef, newIORef, readIORef, modifyIORef')
 import System.IO.Unsafe (unsafePerformIO)
 
@@ -1330,15 +1330,23 @@ process_batch cws len_c buf bufSize = do
             else do
                 str <- peekCWStringLen (castPtr cws, fromIntegral len_c)
                 let cells = splitOn (chr 31) str
-                    validCells = filter (not . null) cells
-                results <- mapConcurrently processCellValueIO validCells
-                let writeCount = min (fromIntegral bufSize) (length results)
+                    validCells = cells
+                    n = length validCells
+                    half = n `div` 2
+                    (firstHalf, secondHalf) = splitAt half validCells
+                -- 上半分・下半分を並列処理
+                (results1, results2) <- concurrently
+                    (mapConcurrently processCellIO firstHalf)
+                    (mapConcurrently processCellIO secondHalf)
+                let results = results1 ++ results2
+                    writeCount = min (fromIntegral bufSize) (length results)
                 mapM_ (\i -> pokeElemOff buf i (fromIntegral (results !! i))) [0..writeCount-1]
                 return (fromIntegral writeCount)
         ) `catch` (\(_ :: SomeException) -> return (-998))
     return result
 
 processCellIO :: String -> IO Int
+processCellIO "" = return 0
 processCellIO str = do
     cache <- readIORef cellCache
     case Map.lookup str cache of
@@ -1363,7 +1371,9 @@ splitOn :: Char -> String -> [String]
 splitOn _ [] = [""]
 splitOn delim (c:cs)
     | c == delim = "" : rest
-    | otherwise  = (c : head rest) : tail rest
+    | otherwise  = case rest of
+        [] -> [[c]]
+        (r:rs) -> (c : r) : rs
     where rest = splitOn delim cs
 
 process_batch_value :: CWString -> CInt -> Ptr CInt -> CInt -> IO CInt
@@ -1374,15 +1384,24 @@ process_batch_value cws len_c buf bufSize = do
             else do
                 str <- peekCWStringLen (castPtr cws, fromIntegral len_c)
                 let cells = splitOn (chr 31) str
-                    validCells = filter (not . null) cells
-                results <- mapM processCellValueIO validCells
-                let writeCount = min (fromIntegral bufSize) (length results)
+                    validCells = cells
+                    n = length validCells
+                    half = n `div` 2
+                    (firstHalf, secondHalf) = splitAt half validCells
+                -- 上半分・下半分を並列処理
+                (results1, results2) <- concurrently
+                    (mapConcurrently processCellValueIO firstHalf)
+                    (mapConcurrently processCellValueIO secondHalf)
+                let results = results1 ++ results2
+                    writeCount = min (fromIntegral bufSize) (length results)
                 mapM_ (\i -> pokeElemOff buf i (fromIntegral (results !! i))) [0..writeCount-1]
                 return (fromIntegral writeCount)
         ) `catch` (\(_ :: SomeException) -> return (-998))
     return result
 
+
 processCellValueIO :: String -> IO Int
+processCellValueIO "" = return 0
 processCellValueIO str = do
     cache <- readIORef cellValueCache
     case Map.lookup str cache of
