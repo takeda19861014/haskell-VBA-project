@@ -1,3 +1,4 @@
+#pragma warning(disable: 4103)
 #include <windows.h>
 #include <oleauto.h>
 #include <HsFFI.h>
@@ -87,7 +88,7 @@ extern "C" {
 
         UINT len = SysStringLen(s);
         char debug_msg[256];
-        sprintf_s(debug_msg, sizeof(debug_msg), "real_len_wrapper: BSTRポインタ=0x%p, 長さ=%u, elem1=%d, elem2=%d\n", (void*)s, len, elem1, elem2);
+        sprintf(debug_msg, "real_len_wrapper: BSTRポインタ=0x%p, 長さ=%u, elem1=%d, elem2=%d\n", (void*)s, len, elem1, elem2);
         OutputDebugStringA(debug_msg);
 
         return real_len((const wchar_t*)s, (HsInt32)len, elem1, elem2);
@@ -109,7 +110,7 @@ extern "C" {
 
         HsInt32 len = (HsInt32)wcslen(s);
         char debug_msg[256];
-        sprintf_s(debug_msg, sizeof(debug_msg), "real_len_wrapper_wstr: 文字列ポインタ=0x%p, 長さ=%d, elem1=%d, elem2=%d\n", (void*)s, len, elem1, elem2);
+        sprintf(debug_msg, "real_len_wrapper_wstr: 文字列ポインタ=0x%p, 長さ=%d, elem1=%d, elem2=%d\n", (void*)s, len, elem1, elem2);
         OutputDebugStringA(debug_msg);
 
         return real_len(s, len, elem1, elem2);
@@ -130,7 +131,7 @@ extern "C" {
         }
 
         char debug_msg[256];
-        sprintf_s(debug_msg, sizeof(debug_msg), "real_len_advanced_wrapper: 文字列ポインタ=0x%p, 長さ=%d, elem1=%d, elem2=%d\n", (void*)s, len_c, elem1, elem2);
+        sprintf(debug_msg, "real_len_advanced_wrapper: 文字列ポインタ=0x%p, 長さ=%d, elem1=%d, elem2=%d\n", (void*)s, len_c, elem1, elem2);
         OutputDebugStringA(debug_msg);
 
         return real_len_advanced(s, len_c, elem1, elem2);
@@ -151,7 +152,7 @@ extern "C" {
         }
 
         char debug_msg[256];
-        sprintf_s(debug_msg, sizeof(debug_msg), "real_value_new_wrapper: 文字列ポインタ=0x%p, 長さ=%d, elem1=%d, elem2=%d\n", (void*)s, len_c, elem1, elem2);
+        sprintf(debug_msg, "real_value_new_wrapper: 文字列ポインタ=0x%p, 長さ=%d, elem1=%d, elem2=%d\n", (void*)s, len_c, elem1, elem2);
         OutputDebugStringA(debug_msg);
 
         return real_value_new_improved(s, len_c, elem1, elem2);
