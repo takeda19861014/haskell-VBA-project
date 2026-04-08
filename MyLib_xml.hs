@@ -1,0 +1,1450 @@
+import System.Process (callCommand, system)
+import System.Directory (createDirectoryIfMissing, removeDirectoryRecursive)
+import System.Environment (getArgs)
+import System.FilePath (takeDirectory)
+import System.Exit (ExitCode(..))
+import System.IO.Unsafe (unsafePerformIO)
+import Data.Char (ord, chr)
+import Data.IORef (IORef, newIORef, readIORef, modifyIORef')
+import qualified Data.Map.Strict as Map
+import qualified Data.Vector.Unboxed as V
+import qualified Data.Vector as BV  -- Boxed（String用）
+import qualified Data.ByteString as BS
+import qualified Data.ByteString.Lazy as BL
+import Control.Concurrent.Async (mapConcurrently, concurrently)
+import Control.Exception (catch, SomeException)
+import qualified Text.XML.Expat.Tree as XTree
+import Text.XML.Expat.Tree (UNode, NodeG(..))
+import Text.XML.Expat.Format
+import Text.XML.Expat.SAX
+import GHC.Conc (setNumCapabilities, getNumProcessors)
+--import Data.Time
+
+makeWorkDir :: FilePath -> FilePath
+makeWorkDir targetFile = takeDirectory targetFile ++ "xlsx_work_temp"
+
+-- Mapの値をEither String Int型にする
+myDict :: Map.Map Int (Either String Int)
+myDict = Map.fromList [
+ (32, Right 0),
+ (33, Right 1),
+ (34, Right 1),
+ (38, Right 25),
+ (39, Right 1),
+ (40, Right 1),
+ (41, Right 1),
+ (42, Right 1),
+ (43, Right 1),
+ (44, Right 1),
+ (45, Right 1),
+ (46, Right 1),
+ (47, Right 1),
+ (48, Left "A"),
+ (49, Left "A"),
+ (50, Left "A"),
+ (51, Left "A"),
+ (52, Left "A"),
+ (53, Left "A"),
+ (54, Left "A"),
+ (55, Left "A"),
+ (56, Left "A"),
+ (57, Left "A"),
+ (58, Right 1),
+ (59, Right 1),
+ (61, Right 1),
+ (62, Right 1),
+ (63, Right 1),
+ (65, Right 1),
+ (66, Right 2),
+ (67, Right 3),
+ (68, Right 4),
+ (69, Right 5),
+ (70, Right 6),
+ (71, Right 7),
+ (72, Right 8),
+ (73, Right 9),
+ (74, Right 10),
+ (75, Right 11),
+ (76, Right 12),
+ (77, Right 13),
+ (78, Right 14),
+ (79, Right 15),
+ (80, Right 16),
+ (81, Right 17),
+ (82, Right 18),
+ (83, Right 19),
+ (84, Right 20),
+ (85, Right 21),
+ (86, Right 22),
+ (87, Right 23),
+ (88, Right 24),
+ (89, Right 25),
+ (90, Right 26),
+ (91, Right 1),
+ (92, Right 1),
+ (93, Right 1),
+ (96, Right 1),
+ (97, Right 1),
+ (98, Right 2),
+ (99, Right 3),
+ (100, Right 4),
+ (101, Right 5),
+ (102, Right 6),
+ (103, Right 7),
+ (104, Right 8),
+ (105, Right 9),
+ (106, Right 10),
+ (107, Right 11),
+ (108, Right 12),
+ (109, Right 13),
+ (110, Right 14),
+ (111, Right 15),
+ (112, Right 16),
+ (113, Right 17),
+ (114, Right 18),
+ (115, Right 19),
+ (116, Right 20),
+ (117, Right 21),
+ (118, Right 22),
+ (119, Right 23),
+ (120, Right 24),
+ (121, Right 25),
+ (122, Right 26),
+ (167, Right 38),
+ (171, Right 1),
+ (176, Right 1),
+ (182, Right 16),
+ (183, Right 1),
+ (187, Right 1),
+ (192, Right 1),
+ (193, Right 1),
+ (194, Right 1),
+ (196, Right 1),
+ (198, Right 6),
+ (200, Right 5),
+ (201, Right 5),
+ (202, Right 5),
+ (203, Right 5),
+ (204, Right 9),
+ (205, Right 9),
+ (206, Right 9),
+ (207, Right 9),
+ (210, Right 15),
+ (211, Right 15),
+ (212, Right 15),
+ (214, Right 15),
+ (217, Right 21),
+ (218, Right 21),
+ (219, Right 21),
+ (220, Right 21),
+ (223, Right 38),
+ (224, Right 1),
+ (225, Right 1),
+ (226, Right 1),
+ (228, Right 1),
+ (230, Right 6),
+ (231, Right 3),
+ (232, Right 5),
+ (233, Right 5),
+ (234, Right 5),
+ (235, Right 5),
+ (236, Right 9),
+ (237, Right 9),
+ (238, Right 9),
+ (239, Right 9),
+ (242, Right 15),
+ (243, Right 15),
+ (244, Right 15),
+ (246, Right 15),
+ (249, Right 21),
+ (250, Right 21),
+ (251, Right 21),
+ (252, Right 21),
+ (255, Right 25),
+ (256, Right 1),
+ (281, Right 5),
+ (335, Right 15),
+ (338, Right 20),
+ (339, Right 20),
+ (363, Right 34),
+ (383, Right 19),
+ (390, Left "R"),
+ (419, Right 17),
+ (547, Right 22),
+ (771, Right 0),
+ (913, Right 1),
+ (914, Right 2),
+ (915, Right 3),
+ (916, Right 4),
+ (917, Right 5),
+ (918, Right 6),
+ (919, Right 7),
+ (920, Right 8),
+ (921, Right 9),
+ (922, Right 10),
+ (923, Right 11),
+ (924, Right 12),
+ (925, Right 13),
+ (926, Right 14),
+ (927, Right 15),
+ (928, Right 16),
+ (929, Right 17),
+ (930, Right 18),
+ (931, Right 18),
+ (932, Right 19),
+ (933, Right 20),
+ (934, Right 21),
+ (935, Right 22),
+ (936, Right 23),
+ (937, Right 24),
+ (938, Right 25),
+ (939, Right 26),
+ (940, Right 1),
+ (941, Right 5),
+ (942, Right 7),
+ (943, Right 9),
+ (944, Right 20),
+ (945, Right 1),
+ (946, Right 2),
+ (947, Right 3),
+ (948, Right 4),
+ (949, Right 5),
+ (950, Right 6),
+ (951, Right 7),
+ (952, Right 8),
+ (953, Right 9),
+ (954, Right 10),
+ (955, Right 11),
+ (956, Right 12),
+ (957, Right 13),
+ (958, Right 14),
+ (959, Right 15),
+ (960, Right 16),
+ (961, Right 17),
+ (962, Right 18),
+ (963, Right 18),
+ (964, Right 19),
+ (965, Right 20),
+ (966, Right 21),
+ (967, Right 22),
+ (968, Right 23),
+ (969, Right 24),
+ (970, Right 25),
+ (971, Right 26),
+ (972, Right 15),
+ (973, Right 20),
+ (974, Right 24),
+ (975, Right 0), 
+ (976, Right 2),
+ (977, Right 0),
+ (978, Right 0),
+ (979, Right 0),
+ (980, Right 0),
+ (981, Right 0),
+ (982, Right 0),
+ (986, Right 0),
+ (987, Right 0),
+ (988, Right 0),
+ (989, Right 0),
+ (990, Right 0),
+ (991, Right 0),
+ (992, Right 0),
+ (993, Right 0),
+ (1425, Right 0),
+ (1426, Right 0),
+ (1427, Right 0),
+ (1428, Right 0),
+ (1429, Right 0),
+ (1430, Right 0),
+ (1431, Right 0),
+ (1432, Right 0),
+ (1433, Right 0),
+ (1434, Right 0),
+ (1435, Right 0),
+ (1436, Right 0),
+ (1437, Right 0),
+ (1438, Right 0),
+ (1439, Right 0),
+ (1440, Right 0),
+ (1441, Right 0),
+ (1442, Right 0),
+ (1443, Right 0),
+ (1444, Right 0),
+ (1445, Right 0),
+ (1446, Right 0),
+ (1447, Right 0),
+ (1448, Right 0),
+ (1449, Right 0),
+ (1450, Right 0),
+ (1451, Right 0),
+ (1452, Right 0),
+ (1453, Right 0),
+ (1454, Right 0),
+ (1455, Right 0),
+ (1456, Right 0),
+ (1457, Right 0),
+ (1458, Right 0),
+ (1459, Right 0),
+ (1460, Right 0),
+ (1461, Right 0),
+ (1462, Right 0),
+ (1463, Right 0),
+ (1464, Right 0),
+ (1465, Right 0),
+ (1466, Right 0),
+ (1467, Right 0),
+ (1468, Right 0),
+ (1469, Right 0),
+ (1470, Right 0),
+ (1471, Right 0),
+ (1472, Right 0),
+ (1473, Right 0),
+ (1474, Right 0),
+ (1475, Right 0),
+ (1476, Right 0),
+ (1477, Right 0),
+ (1478, Right 0),
+ (1479, Right 0),
+ (1488, Right 1),
+ (1489, Right 2),
+ (1490, Right 3),
+ (1491, Right 4),
+ (1492, Right 5),
+ (1493, Right 6),
+ (1494, Right 7),
+ (1495, Right 8),
+ (1496, Right 9),
+ (1497, Right 10),
+ (1498, Right 11),
+ (1499, Right 11),
+ (1500, Right 12),
+ (1501, Right 13),
+ (1502, Right 13),
+ (1503, Right 14),
+ (1504, Right 14),
+ (1505, Right 15),
+ (1506, Right 16),
+ (1507, Right 17),
+ (1508, Right 17),
+ (1509, Right 18),
+ (1510, Right 18),
+ (1511, Right 19),
+ (1512, Right 20),
+ (1513, Right 21),
+ (1514, Right 22),
+ (1519, Right 0),
+ (1520, Right 12),
+ (1521, Right 16),
+ (1522, Right 20),
+ (1523, Right 1),
+ (1524, Right 1),
+ (7936, Right 1),
+ (8049, Right 1),
+ (8115, Right 1),
+ (8211, Right 1),
+ (8213, Right 1),
+ (8216, Right 1),
+ (8217, Right 1),
+ (8218, Right 1),
+ (8220, Right 1),
+ (8222, Right 1),
+ (8266, Right 25),
+ (8544, Left "R"),
+ (8548, Left "R"),
+ (8553, Left "R"),
+ (8556, Left "R"),
+ (8557, Left "R"),
+ (9644, Right 1),
+ (9678, Right 33),
+ (9679, Right 0),
+ (12289, Right 1), 
+ (12290, Right 1),
+ (12291, Right 1),
+ (12292, Right 1),
+ (12293, Right 1),
+ (12294, Right 1),
+ (12295, Right 1),
+ (12296, Right 1),
+ (12297, Right 1),
+ (12298, Right 1),
+ (12299, Right 1),
+ (12300, Right 1),
+ (12301, Right 1),
+ (12302, Right 1),
+ (12303, Right 1),
+ (12304, Right 1),
+ (12305, Right 1),
+ (12306, Right 1),
+ (12307, Right 1),
+ (12308, Right 1),
+ (12309, Right 1),
+ (12310, Right 1),
+ (12311, Right 1),
+ (12312, Right 1),
+ (12313, Right 1),
+ (12314, Right 1),
+ (12315, Right 1),
+ (12316, Right 1),
+ (12317, Right 1),
+ (12318, Right 1),
+ (12319, Right 1),
+ (12320, Right 1),
+ (12321, Right 1),
+ (12322, Right 1),
+ (12323, Right 1),
+ (12324, Right 1),
+ (12325, Right 1),
+ (12326, Right 1),
+ (12327, Right 1),
+ (12328, Right 1),
+ (12329, Right 1),
+ (12330, Right 1),
+ (12331, Right 1),
+ (12332, Right 1),
+ (12333, Right 1),
+ (12334, Right 1),
+ (12335, Right 1),
+ (12336, Right 1),
+ (12337, Right 1),
+ (12338, Right 1),
+ (12339, Right 1),
+ (12340, Right 1),
+ (12341, Right 1),
+ (12342, Right 1),
+ (12343, Right 1),
+ (12344, Right 1),
+ (12345, Right 1),
+ (12346, Right 1),
+ (12347, Right 1),
+ (12348, Right 1),
+ (12349, Right 1),
+ (12350, Right 1),
+ (12351, Right 1),
+ (12352, Right 1),
+ (12354, Right 1),
+ (12355, Right 2),
+ (12356, Right 2),
+ (12357, Right 3),
+ (12358, Right 3),
+ (12359, Right 4),
+ (12360, Right 4),
+ (12361, Right 5),
+ (12362, Right 5),
+ (12363, Right 6),
+ (12364, Right 7),
+ (12365, Right 7),
+ (12366, Right 8),
+ (12367, Right 8),
+ (12368, Right 9),
+ (12369, Right 9),
+ (12370, Right 10),
+ (12371, Right 10),
+ (12372, Right 11),
+ (12373, Right 11),
+ (12374, Right 12),
+ (12375, Right 12),
+ (12376, Right 13),
+ (12377, Right 13),
+ (12378, Right 14),
+ (12379, Right 14),
+ (12380, Right 15),
+ (12381, Right 15),
+ (12382, Right 16),
+ (12383, Right 16),
+ (12384, Right 17),
+ (12385, Right 17),
+ (12386, Right 18),
+ (12387, Right 18),
+ (12388, Right 18),
+ (12389, Right 19),
+ (12390, Right 19),
+ (12391, Right 20),
+ (12392, Right 20),
+ (12393, Right 21),
+ (12394, Right 21),
+ (12395, Right 22),
+ (12396, Right 23),
+ (12397, Right 24),
+ (12398, Right 25),
+ (12399, Right 26),
+ (12400, Right 27),
+ (12401, Right 27),
+ (12402, Right 27),
+ (12403, Right 28),
+ (12404, Right 28),
+ (12405, Right 28),
+ (12406, Right 29),
+ (12407, Right 29),
+ (12408, Right 29),
+ (12409, Right 30),
+ (12410, Right 30),
+ (12411, Right 30),
+ (12412, Right 31),
+ (12413, Right 31),
+ (12414, Right 31),
+ (12415, Right 32),
+ (12416, Right 33),
+ (12417, Right 34),
+ (12418, Right 35),
+ (12419, Right 36),
+ (12420, Right 36),
+ (12421, Right 38),
+ (12422, Right 38),
+ (12423, Right 40),
+ (12424, Right 40),
+ (12425, Right 41),
+ (12426, Right 42),
+ (12427, Right 43),
+ (12428, Right 44),
+ (12429, Right 45),
+ (12430, Right 46),
+ (12431, Right 46),
+ (12432, Right 37),
+ (12433, Right 39),
+ (12434, Right 48),
+ (12435, Right 50),
+ (12436, Right 4),
+ (12437, Right 6),
+ (12438, Right 9),
+ (12439, Right 0),
+ (12440, Right 0),
+ (12441, Right 0),
+ (12442, Right 0),
+ (12443, Right 0),
+ (12444, Right 0),
+ (12445, Right 1),
+ (12446, Right 1),
+ (12447, Right 1),
+ (12448, Right 1),
+ (12449, Right 1),
+ (12450, Right 1),
+ (12451, Right 2),
+ (12452, Right 2),
+ (12453, Right 3),
+ (12454, Right 3),
+ (12455, Right 4),
+ (12456, Right 4),
+ (12457, Right 5),
+ (12458, Right 5),
+ (12459, Right 6),
+ (12460, Right 7),
+ (12461, Right 7),
+ (12462, Right 8),
+ (12463, Right 8),
+ (12464, Right 9),
+ (12465, Right 9),
+ (12466, Right 10),
+ (12467, Right 10),
+ (12468, Right 11),
+ (12469, Right 11),
+ (12470, Right 12),
+ (12471, Right 12),
+ (12472, Right 13),
+ (12473, Right 13),
+ (12474, Right 14),
+ (12475, Right 14),
+ (12476, Right 15),
+ (12477, Right 15),
+ (12478, Right 16),
+ (12479, Right 16),
+ (12480, Right 17),
+ (12481, Right 17),
+ (12482, Right 18),
+ (12483, Right 18),
+ (12484, Right 18),
+ (12485, Right 19),
+ (12486, Right 19),
+ (12487, Right 20),
+ (12488, Right 20),
+ (12489, Right 21),
+ (12490, Right 21),
+ (12491, Right 22),
+ (12492, Right 23),
+ (12493, Right 24),
+ (12494, Right 25),
+ (12495, Right 26),
+ (12496, Right 27),
+ (12497, Right 27),
+ (12498, Right 27),
+ (12499, Right 28),
+ (12500, Right 28),
+ (12501, Right 28),
+ (12502, Right 29),
+ (12503, Right 29),
+ (12504, Right 29),
+ (12505, Right 30),
+ (12506, Right 30),
+ (12507, Right 30),
+ (12508, Right 31),
+ (12509, Right 31),
+ (12510, Right 31),
+ (12511, Right 32),
+ (12512, Right 33),
+ (12513, Right 34),
+ (12514, Right 35),
+ (12515, Right 36),
+ (12516, Right 36),
+ (12517, Right 38),
+ (12518, Right 38),
+ (12519, Right 40),
+ (12520, Right 40),
+ (12521, Right 41),
+ (12522, Right 42),
+ (12523, Right 43),
+ (12524, Right 44),
+ (12525, Right 45),
+ (12526, Right 46),
+ (12527, Right 46),
+ (12528, Right 37),
+ (12529, Right 39),
+ (12530, Right 48),
+ (12531, Right 50),
+ (12532, Right 4),
+ (12533, Right 6),
+ (12534, Right 9),
+ (12535, Right 47),
+ (12536, Right 38),
+ (12537, Right 39),
+ (12538, Right 49),
+ (12539, Right 1),
+ (12540, Right 1),
+ (12541, Right 1),
+ (12542, Right 1),
+ (12543, Right 1),
+ (42841, Right 43),
+ (65288, Right 1),
+ (65289, Right 1),
+ (65293, Right 1),
+ (65306, Right 1)
+  ]
+
+-- ヘブライ語文字種判定(より安全に・通番関数で再定義)
+
+-- ヘブライ語の子音判定
+isHebrewConsonant :: Int -> Bool
+isHebrewConsonant x = x `elem` hebrewConsonants
+  where
+    hebrewConsonants =
+      [1488,1489,1490,1491,1492,1493,1494,1495,1496,1497,
+       1498,1499,1500,1501,1502,1503,1504,1505,1506,1507,
+       1508,1509,1510,1511,1512,1514]
+
+-- ヘブライ語の母音記号（ニクード）判定
+isHebrewVowelMark :: Int -> Bool
+isHebrewVowelMark x = x `elem` hebrewVowelMarks
+  where
+    hebrewVowelMarks =
+      [1456,1457,1458,1459,1460,1461,1462,1463,1464,1465,1467]
+
+-- シン（ש, 1513）判定
+isShinLetter :: Int -> Bool
+isShinLetter x = x == 1513
+
+-- シン・ドット（שׁ: 1473, שׂ: 1474）判定
+isShinDotMark :: Int -> Bool
+isShinDotMark x = x == 1473 || x == 1474
+
+-- ヨッド, セゴル, ダゲシュ判定
+isYodSegolOrDagesh :: Int -> Bool
+isYodSegolOrDagesh x = x `elem` [1497, 1466, 1468]
+
+-- 主要な母音記号+ヴァヴ判定
+isMainVowelOrVav :: Int -> Bool
+isMainVowelOrVav x = x `elem` [1460, 1461, 1462, 1463, 1464, 1465, 1493]
+
+-- セゴル, ダゲシュ, アレフ, ベート, ヨッド判定
+isSegolDageshAlefBetYod :: Int -> Bool
+isSegolDageshAlefBetYod x = x `elem` [1466, 1468, 1488, 1492, 1497]
+
+-- パタフ, カマツ, ヴァヴ判定
+isPatahQamatsOrVav :: Int -> Bool
+isPatahQamatsOrVav x = x `elem` [1463, 1464, 1493]
+
+-- セゴル, ダゲシュ, アレフ, ヨッド判定
+isSegolDageshAlefYod :: Int -> Bool
+isSegolDageshAlefYod x = x `elem` [1466, 1468, 1488, 1497]
+
+-- ヴァヴ, ヨッド判定
+isVavOrYod :: Int -> Bool
+isVavOrYod x = x `elem` [1493, 1497]
+
+isHiriqTzereOrVav :: Int -> Bool
+isHiriqTzereOrVav x = x `elem` [1460, 1461, 1493]
+
+isMainLetterVavYodAlef :: Int -> Bool
+isMainLetterVavYodAlef x =
+    (1425 <= x && x <= 1455) ||
+    (1456 <= x && x <= 1467) ||
+    x == 1468 ||
+    x == 1469 ||
+    x == 1493
+
+isHiriqOrTzere :: Int -> Bool
+isHiriqOrTzere x = x == 1460 || x == 1461
+
+isYod :: Int -> Bool
+isYod x = x == 1497
+
+isAlefOrYod :: Int -> Bool
+isAlefOrYod x = x == 1488 || x == 1497
+
+isDagesh :: Int -> Bool
+isDagesh x = x == 1468
+
+isCantillation :: Int -> Bool
+isCantillation x = (1425 <= x && x <= 1455) || (x == 1469)
+
+is547 :: Int -> Bool
+is547 x = x == 547
+
+is771 :: Int -> Bool
+is771 x = x == 771
+
+-- Hebrew用のパターン定義
+data HebrewPattern = HebrewPattern
+    { tpName :: String
+    , tpLength :: Int
+    , tpCheckers :: [Int -> Bool]  -- 各位置での判定関数
+    , tpSplitPoint :: Int
+    }
+
+allHebrewPatterns :: [HebrewPattern]
+allHebrewPatterns = [
+     HebrewPattern "c_k_l_f_h_pattern" 8 [isShinLetter, isShinDotMark, isDagesh, isCantillation, isPatahQamatsOrVav, isSegolDageshAlefYod, isVavOrYod, isMainLetterVavYodAlef] 6,
+
+     HebrewPattern "c_k_l_f_pattern" 7 [isShinLetter, isShinDotMark, isDagesh, isCantillation, isPatahQamatsOrVav, isSegolDageshAlefYod, isVavOrYod] 7,
+     HebrewPattern "a_k_l_f_h_pattern" 7 [isHebrewConsonant, isDagesh, isCantillation, isPatahQamatsOrVav, isSegolDageshAlefYod, isVavOrYod, isMainLetterVavYodAlef] 5,
+     HebrewPattern "c_k_l_g_h_pattern" 7 [isShinLetter, isShinDotMark, isDagesh, isCantillation, isHiriqOrTzere, isYod, isMainLetterVavYodAlef] 5,
+     HebrewPattern "c_k_l_i_j_h_pattern" 7 [isShinLetter, isShinDotMark, isDagesh, isCantillation, isMainVowelOrVav, isAlefOrYod, isMainLetterVavYodAlef] 5,
+     HebrewPattern "c_l_f_h_pattern" 7 [isShinLetter, isShinDotMark, isCantillation, isPatahQamatsOrVav, isSegolDageshAlefYod, isVavOrYod, isMainLetterVavYodAlef] 5,
+     HebrewPattern "c_k_f_h_pattern" 7 [isShinLetter, isShinDotMark, isDagesh, isPatahQamatsOrVav, isSegolDageshAlefYod, isVavOrYod, isMainLetterVavYodAlef] 5,
+
+     HebrewPattern "c_k_l_e_pattern" 6 [isShinLetter, isShinDotMark, isDagesh, isCantillation, isMainVowelOrVav, isSegolDageshAlefBetYod] 6,
+     HebrewPattern "a_k_l_f_pattern" 6 [isHebrewConsonant, isDagesh, isCantillation, isPatahQamatsOrVav, isSegolDageshAlefYod, isVavOrYod] 6,
+     HebrewPattern "c_l_f_pattern" 6 [isShinLetter, isShinDotMark, isCantillation, isPatahQamatsOrVav, isSegolDageshAlefYod, isVavOrYod] 6,
+     HebrewPattern "c_k_f_pattern" 6 [isShinLetter, isShinDotMark, isDagesh, isPatahQamatsOrVav, isSegolDageshAlefYod, isVavOrYod] 6,
+     HebrewPattern "c_k_l_d_pattern" 6 [isShinLetter, isShinDotMark, isDagesh, isCantillation, isHiriqTzereOrVav, isYodSegolOrDagesh] 6,
+     HebrewPattern "c_f_h_pattern" 6 [isShinLetter, isShinDotMark, isPatahQamatsOrVav, isSegolDageshAlefYod, isVavOrYod, isMainLetterVavYodAlef] 4,
+     HebrewPattern "a_k_l_g_h_pattern" 6 [isHebrewConsonant, isDagesh, isCantillation, isHiriqOrTzere, isYod, isMainLetterVavYodAlef] 4,
+     HebrewPattern "a_k_l_i_j_h_pattern" 6 [isHebrewConsonant, isDagesh, isCantillation, isMainVowelOrVav, isAlefOrYod, isMainLetterVavYodAlef] 4,
+     HebrewPattern "a_l_f_h_pattern" 6 [isHebrewConsonant, isCantillation, isPatahQamatsOrVav, isSegolDageshAlefYod, isVavOrYod, isMainLetterVavYodAlef] 4,
+     HebrewPattern "a_k_f_h_pattern" 6 [isHebrewConsonant, isDagesh, isPatahQamatsOrVav, isSegolDageshAlefYod, isVavOrYod, isMainLetterVavYodAlef] 4,
+     HebrewPattern "c_k_g_h_pattern" 6 [isShinLetter, isShinDotMark, isDagesh, isHiriqOrTzere, isYod, isMainLetterVavYodAlef] 4,
+     HebrewPattern "c_k_i_j_h_pattern" 6 [isShinLetter, isShinDotMark, isDagesh, isMainVowelOrVav, isAlefOrYod, isMainLetterVavYodAlef] 4,
+     HebrewPattern "c_l_g_h_pattern" 6 [isShinLetter, isShinDotMark, isCantillation, isHiriqOrTzere, isYod, isMainLetterVavYodAlef] 4,
+     HebrewPattern "c_l_i_j_h_pattern" 6 [isShinLetter, isShinDotMark, isCantillation, isMainVowelOrVav, isAlefOrYod, isMainLetterVavYodAlef] 4,
+
+     HebrewPattern "a_k_l_e_pattern" 5 [isHebrewConsonant, isDagesh, isCantillation, isMainVowelOrVav, isSegolDageshAlefBetYod] 5,
+     HebrewPattern "a_k_f_pattern" 5 [isHebrewConsonant, isDagesh, isPatahQamatsOrVav, isSegolDageshAlefYod, isVavOrYod] 5,
+     HebrewPattern "a_l_f_pattern" 5 [isHebrewConsonant, isCantillation, isPatahQamatsOrVav, isSegolDageshAlefYod, isVavOrYod] 5,
+     HebrewPattern "c_f_pattern" 5 [isShinLetter, isShinDotMark, isPatahQamatsOrVav, isSegolDageshAlefYod, isVavOrYod] 5,
+     HebrewPattern "c_k_e_pattern" 5 [isShinLetter, isShinDotMark, isDagesh, isMainVowelOrVav, isSegolDageshAlefBetYod] 5,
+     HebrewPattern "c_l_e_pattern" 5 [isShinLetter, isShinDotMark, isCantillation, isMainVowelOrVav, isSegolDageshAlefBetYod] 5,
+     HebrewPattern "a_k_l_d_pattern" 5 [isHebrewConsonant, isDagesh, isCantillation, isHiriqTzereOrVav, isYodSegolOrDagesh] 5,
+     HebrewPattern "c_k_l_b_pattern" 5 [isShinLetter, isShinDotMark, isDagesh, isCantillation, isHebrewVowelMark] 5,
+     HebrewPattern "c_k_d_pattern" 5 [isShinLetter, isShinDotMark, isDagesh, isHiriqTzereOrVav, isYodSegolOrDagesh] 5,
+     HebrewPattern "c_l_d_pattern" 5 [isShinLetter, isShinDotMark, isCantillation, isHiriqTzereOrVav, isYodSegolOrDagesh] 5,
+     HebrewPattern "a_k_g_h_pattern" 5 [isHebrewConsonant, isDagesh, isHiriqOrTzere, isYod, isMainLetterVavYodAlef] 3,
+     HebrewPattern "a_k_i_j_h_pattern" 5 [isHebrewConsonant, isDagesh, isMainVowelOrVav, isAlefOrYod, isMainLetterVavYodAlef] 3,
+     HebrewPattern "a_l_g_h_pattern" 5 [isHebrewConsonant, isCantillation, isHiriqOrTzere, isYod, isMainLetterVavYodAlef] 3,
+     HebrewPattern "a_l_i_j_h_pattern" 5 [isHebrewConsonant, isCantillation, isMainVowelOrVav, isAlefOrYod, isMainLetterVavYodAlef] 3,
+     HebrewPattern "a_f_h_pattern" 5 [isHebrewConsonant, isPatahQamatsOrVav, isSegolDageshAlefYod, isVavOrYod, isMainLetterVavYodAlef] 3,
+     HebrewPattern "c_g_h_pattern" 5 [isShinLetter, isShinDotMark, isHiriqOrTzere, isYod, isMainLetterVavYodAlef] 3,
+     HebrewPattern "c_i_j_h_pattern" 5 [isShinLetter, isShinDotMark, isMainVowelOrVav, isAlefOrYod, isMainLetterVavYodAlef] 3,
+
+     HebrewPattern "a_k_l_b_pattern" 4 [isHebrewConsonant, isDagesh, isCantillation, isHebrewVowelMark] 4,
+     HebrewPattern "a_k_e_pattern" 4 [isHebrewConsonant, isDagesh, isMainVowelOrVav, isSegolDageshAlefBetYod] 4,
+     HebrewPattern "a_l_e_pattern" 4 [isHebrewConsonant, isCantillation, isMainVowelOrVav, isSegolDageshAlefBetYod] 4,
+     HebrewPattern "a_f_pattern" 4 [isHebrewConsonant, isPatahQamatsOrVav, isSegolDageshAlefYod, isVavOrYod] 4,
+     HebrewPattern "c_e_pattern" 4 [isShinLetter, isShinDotMark, isMainVowelOrVav, isSegolDageshAlefBetYod] 4,
+     HebrewPattern "c_k_b_pattern" 4 [isShinLetter, isShinDotMark, isDagesh, isHebrewVowelMark] 4,
+     HebrewPattern "c_l_b_pattern" 4 [isShinLetter, isShinDotMark, isCantillation, isHebrewVowelMark] 4,
+     HebrewPattern "c_k_l_pattern" 4 [isShinLetter, isShinDotMark, isDagesh, isCantillation] 4,
+     HebrewPattern "a_k_d_pattern" 4 [isHebrewConsonant, isDagesh, isHiriqTzereOrVav, isYodSegolOrDagesh] 4,
+     HebrewPattern "a_l_d_pattern" 4 [isHebrewConsonant, isCantillation, isHiriqTzereOrVav, isYodSegolOrDagesh] 4,
+     HebrewPattern "c_d_pattern" 4 [isShinLetter, isShinDotMark, isHiriqTzereOrVav, isYodSegolOrDagesh] 4,
+     HebrewPattern "a_g_h_pattern" 4 [isHebrewConsonant, isHiriqOrTzere, isYod, isMainLetterVavYodAlef] 2,
+     HebrewPattern "a_i_j_h_pattern" 4 [isHebrewConsonant, isMainVowelOrVav, isAlefOrYod, isMainLetterVavYodAlef] 2,
+
+     HebrewPattern "a_k_b_pattern" 3 [isHebrewConsonant, isDagesh, isHebrewVowelMark] 3,
+     HebrewPattern "a_d_pattern" 3 [isHebrewConsonant, isHiriqTzereOrVav, isYodSegolOrDagesh] 3,
+     HebrewPattern "a_e_pattern" 3 [isHebrewConsonant, isMainVowelOrVav, isSegolDageshAlefBetYod] 3,
+     HebrewPattern "a_l_b_pattern" 3 [isHebrewConsonant, isCantillation, isHebrewVowelMark] 3,
+     HebrewPattern "c_b_pattern" 3 [isShinLetter, isShinDotMark, isHebrewVowelMark] 3,
+     HebrewPattern "c_k_pattern" 3 [isShinLetter, isShinDotMark, isDagesh] 3,
+     HebrewPattern "c_l_pattern" 3 [isShinLetter, isShinDotMark, isCantillation] 3,
+
+     HebrewPattern "a_b_pattern" 2 [isHebrewConsonant, isHebrewVowelMark] 2,
+     HebrewPattern "c_pattern" 2 [isShinLetter, isShinDotMark] 2,
+     HebrewPattern "k_l_pattern" 2 [isDagesh, isCantillation] 2,
+     HebrewPattern "nonHebrewpattern" 2 [is547, is771] 2
+     ]
+     -- ヘブライ語以外
+     
+
+---- スライディングウィンドウによる最長パターンマッチ
+findLongestPatternSliding :: [HebrewPattern] -> [Int] -> Maybe (HebrewPattern, Int, [Int])
+findLongestPatternSliding patterns xs = 
+    let -- パターンを長さの降順でソート（最長優先）
+        sortedPatterns = sortBy (flip compare `on` tpLength) patterns
+        
+        -- 各位置での最良のマッチを見つける
+        findBestMatch pos remainingChars
+            | null remainingChars = Nothing
+            | otherwise = 
+                let validPatterns = filter (\p -> tpLength p <= length remainingChars) sortedPatterns
+                in tryPatterns validPatterns pos remainingChars
+        
+        tryPatterns [] _ _ = Nothing
+        tryPatterns (p:ps) pos chars =
+            let len = tpLength p
+                checkers = tpCheckers p
+                segment = take len chars
+            in if length segment == len && and (zipWith ($) checkers segment)
+               then Just (p, pos, segment)
+               else tryPatterns ps pos chars
+        
+        -- 全ての位置を試す
+        tryAllPositions pos
+            | pos >= length xs = Nothing
+            | otherwise =
+                case findBestMatch pos (drop pos xs) of
+                    Just result -> Just result
+                    Nothing -> tryAllPositions (pos + 1)
+    
+    in tryAllPositions 0
+
+-- スライディングウィンドウ方式で解析
+processUnicodesWithPatternMatching :: V.Vector Int -> IO AnalysisResult
+processUnicodesWithPatternMatching unicodes = 
+    let processChunk :: [Int] -> Int -> [[Int]] -> IO AnalysisResult
+        processChunk [] _ acc = return $ AnalysisResult (reverse acc) (length acc)
+        processChunk chars@(c:rest) startPos acc = do
+            case findLongestPatternSliding allHebrewPatterns chars of
+                Just (pat, relPos, seg) -> do
+                    let absPos = startPos + relPos
+                    -- パターンマッチ前の文字を個別処理
+                    let beforeChars = take relPos chars
+                        beforeColumns = map (\c -> 0 : [c] ++ replicate 4 0) beforeChars
+                    
+                    -- パターンを処理
+                    let split = tpSplitPoint pat
+                        (firstCol, nextCol) = 
+                            if split > 0 && split < tpLength pat
+                            then (take split seg, drop split seg)
+                            else (seg, [])
+                        firstColumn = 0 : firstCol ++ replicate (5 - length firstCol) 0
+                    
+                    let newAcc = reverse beforeColumns ++ acc
+                    if null nextCol
+                        then do
+                            let remainingChars = drop (relPos + tpLength pat) chars
+                            processChunk remainingChars (absPos + tpLength pat) (firstColumn : newAcc)
+                        else do
+                            let nextColumn = 0 : nextCol ++ replicate (5 - length nextCol) 0
+                                remainingChars = drop (relPos + tpLength pat) chars
+                            processChunk remainingChars (absPos + tpLength pat) (nextColumn : firstColumn : newAcc)
+                
+                Nothing -> do
+                    -- パターンが見つからない場合、最初の文字のみ処理
+                    let singleCharColumn = 0 : [c] ++ replicate 4 0
+                    processChunk rest (startPos + 1) (singleCharColumn : acc)
+    
+    in processChunk (V.toList unicodes) 0 []
+
+
+processUnicodesInBatches :: V.Vector Int -> Int -> IO AnalysisResult
+processUnicodesInBatches unicodes batchSize = do
+    let batches = chunksOf batchSize (V.toList unicodes)
+    results <- mapM (processUnicodesWithPatternMatching . V.fromList) batches
+    let combinedColumns = concatMap columns results
+        totalColumns = length combinedColumns
+    return $ AnalysisResult combinedColumns totalColumns
+  where
+    chunksOf :: Int -> [a] -> [[a]]
+    chunksOf _ [] = []
+    chunksOf n xs = take n xs : chunksOf n (drop n xs)
+
+-- 解析結果データ型
+data AnalysisResult = AnalysisResult
+    { columns :: [[Int]]
+    , totalCols :: Int
+    } deriving (Show)
+
+-- 合成文字を作成する関数
+createCompositeChar :: [Int] -> String
+createCompositeChar unicodes = map chr (filter (\x -> x > 0 && x < 1114112) unicodes)
+
+-- 合成文字のUnicode値を計算(簡略化:最初の文字のUnicodeを使用)
+getCompositeUnicode :: String -> Int
+getCompositeUnicode compositeStr = case compositeStr of
+    [] -> 0
+    (c:_) -> ord c
+
+-- 値取得（1行目は常に0を返すよう修正）
+getValueAtImproved :: AnalysisResult -> Int -> Int -> Int
+getValueAtImproved result row col
+    | col < 1 || col > totalCols result = 0
+    | row < 1 = 0
+    | row == 1 = 0  -- 1行目は常に0
+    | otherwise =
+        case safeIndex (columns result) (col - 1) of
+            Nothing -> 0
+            Just colData ->
+                case safeIndex colData (row - 1) of
+                    Nothing -> 0
+                    Just value -> value
+
+-- ★ 値取得 (real_len_advancedと同じインターフェース)
+getValueAtPosition :: ValueAnalysisResult -> Int -> Int -> Int
+getValueAtPosition result row col
+    | col < 1 || col > valueTotalCols result = 0
+    | row < 1 = 0
+    | row == 1 = 0  -- 1行目は常に0（real_len_advancedと同じ）
+    | otherwise =
+        case safeIndex (valueColumns result) (col - 1) of
+            Nothing -> 0
+            Just colData ->
+                case safeIndex colData (row - 1) of
+                    Nothing -> 0
+                    Just value -> value
+
+-- Helper functions
+sortBy :: (a -> a -> Ordering) -> [a] -> [a]
+sortBy cmp = foldr (insertBy cmp) []
+
+insertBy :: (a -> a -> Ordering) -> a -> [a] -> [a]
+insertBy _   x [] = [x]
+insertBy cmp x ys@(y:ys') = case cmp x y of
+    GT -> y : insertBy cmp x ys'
+    _  -> x : ys
+
+on :: (b -> b -> c) -> (a -> b) -> a -> a -> c
+on f g x y = f (g x) (g y)
+
+
+-- 安全なリストアクセス
+safeIndex :: [a] -> Int -> Maybe a
+safeIndex xs i
+    | i < 0 || i >= length xs = Nothing
+    | otherwise = Just (xs !! i)
+
+-- ★ 修正版解析結果データ型 - real_len_advancedと同じ構造
+data ValueAnalysisResult = ValueAnalysisResult
+    { valueColumns :: [[Int]]  -- 各列のデータ (6行固定)
+    , valueTotalCols :: Int
+    } deriving (Show)
+
+-- ★ 文字の値を取得(分岐処理対応)
+getCharValue :: Int -> Int
+getCharValue char
+    | isArabicDigit char = getArabicValue char  
+    | isRomanNumeral char = getRomanValue char  
+    | otherwise = case Map.lookup char myDict of
+        Just (Right v) -> v
+        _ -> 0
+
+-- ★ :real_len_advancedと対応する値解析
+analyzeStringForValues :: String -> IO ValueAnalysisResult
+analyzeStringForValues str = do
+    let strNoSpaces = str
+        unicodes = V.fromList (map ord str)
+    result <- processUnicodesForValues unicodes
+    return result
+
+-- ★ :Unicode処理(real_len_advancedのロジックを値計算用に変更)
+processUnicodesForValues :: V.Vector Int -> IO ValueAnalysisResult
+processUnicodesForValues unicodes = go (V.toList unicodes) []
+  where
+    go [] acc = return $ ValueAnalysisResult (reverse acc) (length acc)
+    go xs acc = do
+        -- まず3文字のローマ数字パターンをチェック
+        case checkRomanPattern (take 3 xs) of
+            Just (totalValue, 3) -> do
+                let patternChars = take 3 xs
+                    remaining = drop 3 xs
+                    individualValues = calculateIndividualRomanValues patternChars 3 totalValue
+                    columns = map (\val -> 0 : [val] ++ replicate 4 0) individualValues
+                go remaining (reverse columns ++ acc)
+            _ -> 
+                -- 次に2文字のローマ数字パターンをチェック
+                case checkRomanPattern (take 2 xs) of
+                    Just (totalValue, 2) -> do
+                        let patternChars = take 2 xs
+                            remaining = drop 2 xs
+                            individualValues = calculateIndividualRomanValues patternChars 2 totalValue
+                            columns = map (\val -> 0 : [val] ++ replicate 4 0) individualValues
+                        go remaining (reverse columns ++ acc)
+                    _ -> 
+                        -- ヘブライ語パターンをチェック
+                        case findLongestPatternSliding allHebrewPatterns xs of
+                            Just (pat, pos, seg) -> do
+                                -- パターンマッチ前の文字を個別処理（修正）
+                                let beforeChars = take pos xs
+                                    beforeColumns = map (\c -> 
+                                        let charPos = V.length unicodes - length xs + (c `elemIndex'` beforeChars)
+                                            charValue = calculateSimpleCharValue unicodes charPos c
+                                        in 0 : [charValue] ++ replicate 4 0) beforeChars
+                                
+                                let patLen = tpLength pat
+                                    split = tpSplitPoint pat
+                                    (firstColChars, nextColChars) = 
+                                        if split > 0 && split < patLen
+                                        then (take split seg, drop split seg)
+                                        else (seg, [])
+                                    -- パターン内文字は専用関数を使用
+                                    firstColValues = map (\c -> 
+                                        let charPos = V.length unicodes - length xs + pos + (c `elemIndex'` firstColChars)
+                                        in calculateValueForPatternChar unicodes charPos c) firstColChars
+                                    firstColumn = 0 : firstColValues ++ replicate (5 - length firstColValues) 0
+                                
+                                let newAcc = reverse beforeColumns ++ acc
+                                if null nextColChars
+                                then go (drop (pos + patLen) xs) (firstColumn : newAcc)
+                                else do
+                                    let nextColValues = map (\c -> 
+                                            let charPos = V.length unicodes - length xs + pos + split + (c `elemIndex'` nextColChars)
+                                            in calculateValueForPatternChar unicodes charPos c) nextColChars
+                                        nextColumn = 0 : nextColValues ++ replicate (5 - length nextColValues) 0
+                                    go (drop (pos + patLen) xs) (nextColumn : firstColumn : newAcc)
+                            Nothing ->
+                                -- 個別文字処理（修正）
+                                case xs of
+                                    (firstChar:restChars) -> do
+                                        let charPos = V.length unicodes - length xs
+                                            charValue = calculateSimpleCharValue unicodes charPos firstChar
+                                            singleCharColumn = 0 : [charValue] ++ replicate 4 0
+                                        go restChars (singleCharColumn : acc)
+
+-- ヘルパー関数:リスト内での要素のインデックスを取得
+elemIndex' :: Eq a => a -> [a] -> Int
+elemIndex' x xs = case elemIndex x xs of
+    Just i -> i
+    Nothing -> 0
+  where
+    elemIndex _ [] = Nothing
+    elemIndex y (z:zs)
+        | y == z = Just 0
+        | otherwise = fmap (+1) (elemIndex y zs)
+
+-- ★ より高度な処理:文字列全体での位取り・パターン計算
+processSpecialCharsAdvanced :: V.Vector Int -> [Int] -> Int -> [Int]
+processSpecialCharsAdvanced allUnicodes chars startPos =     
+    map (\(char, offset) -> calculateValueForPatternChar allUnicodes (startPos + offset) char) 
+        (zip chars [0..])
+
+
+-- ★ 高度な値計算(位取り・ローマ数字パターン対応)
+calculateValueForPatternChar :: V.Vector Int -> Int -> Int -> Int
+calculateValueForPatternChar allUnicodes pos char
+    | pos < 0 || pos >= V.length allUnicodes = 0
+    | isArabicDigit char = calculateDigitValue allUnicodes pos
+    | otherwise = getCharValue char  -- 辞書参照のみ、ローマ数字の特殊処理は行わない
+
+calculateSimpleCharValue :: V.Vector Int -> Int -> Int -> Int
+calculateSimpleCharValue allUnicodes pos char
+    | pos < 0 || pos >= V.length allUnicodes = 0
+    | isArabicDigit char = calculateDigitValue allUnicodes pos
+    | otherwise = getCharValue char  -- 辞書参照のみ
+
+isArabicDigit :: Int -> Bool
+isArabicDigit x = x >= 48 && x <= 57  -- Unicode range for '0' to '9'
+
+-- Roman numeral checking function
+isRomanNumeral :: Int -> Bool
+isRomanNumeral x = x `elem` [8544, 8548, 8553, 8556, 8557]  
+-- Corresponds to: Ⅰ(8544), Ⅴ(8548), Ⅹ(8553), Ⅼ(8556), Ⅽ(8557)
+
+-- Get Arabic digit value
+getArabicValue :: Int -> Int
+getArabicValue x
+    | x >= 48 && x <= 57 = x - 48  -- Convert Unicode to actual digit value
+    | otherwise = 0
+
+-- Get Roman numeral value
+getRomanValue :: Int -> Int
+getRomanValue x = case x of
+    8544 -> 1   -- Ⅰ
+    8548 -> 5   -- Ⅴ
+    8553 -> 10  -- Ⅹ
+    8556 -> 50  -- Ⅼ
+    8557 -> 100 -- Ⅽ
+    _ -> 0
+
+-- 文字ごとの値変換(位取りを考慮,ローマ数字の分岐処理対応)
+charToValueWithPosition :: V.Vector Int -> Int -> Int
+charToValueWithPosition allUnicodes pos
+    | pos < 0 || pos >= V.length allUnicodes = 0
+    | otherwise = 
+        let currentChar = allUnicodes V.! pos
+        in if isArabicDigit currentChar
+           then calculateDigitValue allUnicodes pos
+           else if isRomanNumeral currentChar
+           then calculateRomanValue allUnicodes pos
+           else getSingleCharValueSimple currentChar
+
+-- アラビア数字の位取り計算(前後の文字を考慮)
+calculateDigitValue :: V.Vector Int -> Int -> Int
+calculateDigitValue unicodes pos = 
+    let currentChar = unicodes V.! pos
+        digitValue = getArabicValue currentChar
+        
+        -- 連続する数字のシーケンスを特定
+        digitSequence = getDigitSequence unicodes pos
+        startPos = fst digitSequence
+        sequence = snd digitSequence
+        positionInSequence = pos - startPos
+        sequenceLength = length sequence
+        
+        -- 位取り計算 - 右から左へ
+        power = sequenceLength - positionInSequence - 1
+    in if power >= 0 && positionInSequence >= 0 && positionInSequence < sequenceLength
+       then digitValue * (10 ^ power)
+       else digitValue
+
+-- ローマ数字の値計算(パターンマッチングによる分岐処理)
+calculateRomanValue :: V.Vector Int -> Int -> Int
+calculateRomanValue unicodes pos
+    | pos >= V.length unicodes = 0
+    | otherwise = 
+        let remaining = V.toList (V.drop pos unicodes)
+        in case checkRomanPattern remaining of
+            Just (value, _) -> value
+            Nothing -> getSingleCharValueSimple (unicodes V.! pos)
+
+-- ローマ数字パターンの確認
+checkRomanPattern :: [Int] -> Maybe (Int, Int)  -- (値, 消費文字数)
+-- 1. Ⅽ Ⅰ Ɔ → 1000の特殊表記（完全一致チェック）
+checkRomanPattern (8557:8544:390:_) = Just (1000, 3)
+
+-- 2. （≠Ⅽ）Ⅰ Ɔ → 500の特殊表記（第1文字チェック強化）
+checkRomanPattern (x:8544:390:_) 
+  | x /= 8557 && (isArabicDigit x || isInMyDict x || isRomanNumeral x) = Just (500, 3)
+
+-- 3. Ⅰ Ɔ → 500の特殊表記（2文字パターンとして追加）
+checkRomanPattern (8544:390:_) = Just (500, 2)
+
+-- 4. Ⅰ Ⅼ → 49（減算表記）
+checkRomanPattern (8544:8556:_) = Just (49, 2)
+
+-- 5. Ⅰ Ⅹ → 9（減算表記）
+checkRomanPattern (8544:8553:_) = Just (9, 2)
+
+-- 6. Ⅰ Ⅴ → 4（減算表記）
+checkRomanPattern (8544:8548:_) = Just (4, 2)
+
+-- 7. Ⅹ Ⅼ → 40（減算表記）
+checkRomanPattern (8553:8556:_) = Just (40, 2)
+
+-- 8. Ⅹ Ⅽ → 90（減算表記）
+checkRomanPattern (8553:8557:_) = Just (90, 2)
+
+-- 9-13. 単一ローマ数字
+checkRomanPattern (8544:_) = Just (1, 1)   -- Ⅰ
+checkRomanPattern (8548:_) = Just (5, 1)   -- Ⅴ
+checkRomanPattern (8553:_) = Just (10, 1)  -- Ⅹ
+checkRomanPattern (8556:_) = Just (50, 1)  -- Ⅼ
+checkRomanPattern (8557:_) = Just (100, 1) -- Ⅽ
+
+-- 14. Ɔ  → 0（特殊用途）
+checkRomanPattern (390:_) = Just (0, 1)
+
+checkRomanPattern _ = Nothing
+
+
+isInMyDict :: Int -> Bool
+isInMyDict x = case Map.lookup x myDict of
+    Just (Right _) -> True
+    _ -> False
+
+-- ローマ数字パターンの各文字の個別寄与を計算(修正版)
+calculateIndividualRomanValues :: [Int] -> Int -> Int -> [Int]
+calculateIndividualRomanValues chars consumed totalValue = case (chars, consumed, totalValue) of
+    -- 場合1: Ⅽ Ⅰ Ɔ  → 1000 の特殊表記
+    (8557:8544:390:_, 3, 1000) -> [0, 1000, 0]
+    
+    -- 場合2: （≠Ⅽ）Ⅰ Ɔ  → 500 の特殊表記
+    (first:8544:390:_, 3, 500) -> 
+        let firstCharValue = if isArabicDigit first
+                            then getArabicValue first
+                            else case Map.lookup first myDict of
+                                Just (Right v) -> v
+                                _ -> if isRomanNumeral first then getRomanValue first else 0
+        in [firstCharValue, 500, 0]
+    
+    -- 場合3: Ⅰ Ɔ → 500 の特殊表記（2文字パターン）
+    (8544:390:_, 2, 500) -> [500, 0]
+    
+    -- 2文字の減算記法 - 修正版
+    (first:second:_, 2, _) -> 
+        let firstValue = getRomanValue first
+            secondValue = getRomanValue second
+        in case (first, second) of
+            (8544, 8556) -> [-1, 50]   -- Ⅰ Ⅼ → 49 = -1 + 50
+            (8544, 8553) -> [-1, 10]   -- Ⅰ Ⅹ → 9 = -1 + 10  
+            (8544, 8548) -> [-1, 5]    -- Ⅰ Ⅴ → 4 = -1 + 5
+            (8553, 8556) -> [-10, 50]  -- Ⅹ Ⅼ → 40 = -10 + 50
+            (8553, 8557) -> [-10, 100] -- Ⅹ Ⅽ → 90 = -10 + 100
+            _ -> [firstValue, secondValue]
+    
+    -- その他の3文字パターン
+    (first:second:third:_, 3, _) -> [0, 0, totalValue]
+    
+    -- 単一文字
+    _ -> [totalValue]
+   
+-- 連続数字シーケンスの開始位置と文字列を取得
+getDigitSequence :: V.Vector Int -> Int -> (Int, [Int])
+getDigitSequence unicodes pos = 
+    let -- 後方検索：シーケンスの開始を見つける
+        startPos = findSequenceStart unicodes pos
+        -- 前方検索：シーケンスの終了を見つける  
+        endPos = findSequenceEnd unicodes startPos
+        sequence = V.toList (V.slice startPos (endPos - startPos + 1) unicodes)
+    in (startPos, sequence)
+
+-- 数字シーケンスの開始位置を見つける
+findSequenceStart :: V.Vector Int -> Int -> Int
+findSequenceStart unicodes pos
+    | pos <= 0 = 0
+    | pos >= V.length unicodes = pos
+    | isArabicDigit (unicodes V.! (pos - 1)) = findSequenceStart unicodes (pos - 1)
+    | otherwise = pos
+
+-- 数字シーケンスの終了位置を見つける
+findSequenceEnd :: V.Vector Int -> Int -> Int
+findSequenceEnd unicodes pos
+    | pos >= V.length unicodes - 1 = V.length unicodes - 1
+    | isArabicDigit (unicodes V.! (pos + 1)) = findSequenceEnd unicodes (pos + 1)
+    | otherwise = pos
+
+-- 単一文字の値(数字以外)
+getSingleCharValueSimple :: Int -> Int
+getSingleCharValueSimple char
+    | isRomanNumeral char = getRomanValue char
+    | otherwise = case Map.lookup char myDict of
+        Just (Right v) -> v
+        _ -> 0
+
+processCellIO :: String -> IO Int
+processCellIO "" = return 0
+processCellIO str = do
+    cache <- readIORef cellCache
+    case Map.lookup str cache of
+        Just result -> do
+            return result
+        Nothing -> do
+            let unicodes = V.fromList (map ord str)
+            analysisResult <- processUnicodesWithPatternMatching unicodes
+            let totalColumns = totalCols analysisResult
+                validColumns = length $ filter (\colIdx ->
+                    let colValue = getValueAtImproved analysisResult 2 colIdx
+                    in colValue /= 0 && colValue /= -999 && colValue /= -998 && colValue /= -1) [1..totalColumns]
+            modifyIORef' cellCache (Map.insert str validColumns)
+            return validColumns
+
+cellCache :: IORef (Map.Map String Int)
+cellCache = unsafePerformIO (newIORef Map.empty)
+
+cellValueCache :: IORef (Map.Map String Int)
+cellValueCache = unsafePerformIO (newIORef Map.empty)
+
+splitOn :: Char -> String -> [String]
+splitOn _ [] = [""]
+splitOn delim (c:cs)
+    | c == delim = "" : rest
+    | otherwise  = case rest of
+        [] -> [[c]]
+        (r:rs) -> (c : r) : rs
+    where rest = splitOn delim cs
+
+processCellValueIO :: String -> IO Int
+processCellValueIO "" = return 0
+processCellValueIO str = do
+    cache <- readIORef cellValueCache
+    case Map.lookup str cache of
+        Just result -> return result
+        Nothing -> do
+            valueResult <- analyzeStringForValues str
+            let allValues = concatMap (filter (/= 0)) (valueColumns valueResult)
+                totalSum = sum allValues
+            modifyIORef' cellValueCache (Map.insert str totalSum)
+            return totalSum
+
+-- ========== XML処理 ==========
+
+colNameToIdx :: String -> Int
+colNameToIdx = foldl (\acc c -> acc * 26 + (ord c - ord 'A' + 1)) 0
+
+colIdxToName :: Int -> String
+colIdxToName 0 = ""
+colIdxToName n =
+    let (q, r) = (n - 1) `divMod` 26
+    in colIdxToName q ++ [chr (r + ord 'A')]
+
+colOfCell :: String -> Int
+colOfCell addr = colNameToIdx (takeWhile (\c -> c >= 'A' && c <= 'Z') addr)
+
+-- sharedStrings.xmlをVectorに
+parseSharedStrings :: FilePath -> IO (BV.Vector String)
+parseSharedStrings path = do
+    bs <- BS.readFile path
+    let events = parse defaultParseOptions (BL.fromStrict bs) :: [SAXEvent String String]
+    let texts = extractSiTexts events
+    return (BV.fromList texts)
+
+extractSiTexts :: [SAXEvent String String] -> [String]
+extractSiTexts events = go events False False "" ""
+  where
+    go [] _ _ _ acc = []
+    go (ev:rest) inSi inT current tText =
+        case ev of
+            StartElement "si" _ -> go rest True False "" ""
+            StartElement "t" _  -> go rest inSi True "" tText
+            CharacterData s     -> go rest inSi inT (current ++ s) tText
+            EndElement "t"      -> go rest inSi False "" (tText ++ current)
+            EndElement "si"     -> if inSi
+                                   then tText : go rest False False "" ""
+                                   else go rest False False "" ""
+            _                   -> go rest inSi inT current tText
+
+-- sheet1.xmlからinputColのセルを取得
+parseSheet :: FilePath -> Int -> IO [(Int, String, String)]
+parseSheet path targetCol = do
+    bs <- BS.readFile path
+    let events = parse defaultParseOptions (BL.fromStrict bs) :: [SAXEvent String String]
+    let result = extractCells targetCol events
+    return result
+
+extractCells :: Int -> [SAXEvent String String] -> [(Int, String, String)]
+extractCells targetCol events = go events False 0 "" "" ""
+  where
+    go [] _ _ _ _ _ = []
+    go (ev:rest) inTarget rowNum cellAddr tAttr current =
+        case ev of
+            StartElement "row" attrs ->
+                let r = maybe 0 read (lookup "r" attrs)
+                in go rest False r "" "" ""
+            StartElement "c" attrs ->
+                let addr  = maybe "" id (lookup "r" attrs)
+                    tA    = maybe "" id (lookup "t" attrs)
+                    col   = colOfCell addr
+                in go rest (col == targetCol) rowNum addr tA ""
+            StartElement "v" _ ->
+                go rest inTarget rowNum cellAddr tAttr current
+            CharacterData s ->
+                go rest inTarget rowNum cellAddr tAttr (current ++ s)
+            EndElement "v" ->
+                if inTarget
+                then (rowNum, current, tAttr) : go rest inTarget rowNum cellAddr tAttr ""
+                else go rest inTarget rowNum cellAddr tAttr ""
+            EndElement "c" ->
+                go rest False rowNum "" "" ""
+            _ -> go rest inTarget rowNum cellAddr tAttr current
+
+-- XMLツリーにoutputColの結果を挿入
+insertResults :: Int -> [(Int, Int)] -> XTree.UNode String -> XTree.UNode String
+insertResults outCol rowResults (Element name attrs children) =
+    Element name attrs (map (insertInRow outCol rowResults) children)
+insertResults _ _ node = node
+
+insertInRow :: Int -> [(Int, Int)] -> XTree.UNode String -> XTree.UNode String
+insertInRow outCol rowResults (Element "row" attrs children) =
+    let rowNum = maybe 0 read (lookup "r" attrs)
+    in case lookup rowNum rowResults of
+        Nothing  -> Element "row" attrs children
+        Just val ->
+            let newCell  = makeCell outCol rowNum val
+                children' = insertCell outCol newCell children
+            in Element "row" attrs children'
+insertInRow outCol rowResults (Element name attrs children) =
+    Element name attrs (map (insertInRow outCol rowResults) children)
+insertInRow _ _ node = node
+
+makeCell :: Int -> Int -> Int -> XTree.UNode String
+makeCell colIdx rowNum val =
+    let addr = colIdxToName colIdx ++ show rowNum
+    in Element "c" [("r", addr)] [Element "v" [] [Text (show val)]]
+
+insertCell :: Int -> XTree.UNode String -> [XTree.UNode String] -> [XTree.UNode String]
+insertCell outCol newCell [] = [newCell]
+insertCell outCol newCell (c:cs) =
+    case c of
+        Element "c" attrs _ ->
+            let addr = maybe "" id (lookup "r" attrs)
+                col  = colOfCell addr
+            in if col == outCol
+               then newCell : cs
+               else if col > outCol
+                    then newCell : c : cs
+                    else c : insertCell outCol newCell cs
+        _ -> c : insertCell outCol newCell cs
+
+-- ========== メイン処理 ==========
+
+unzipXlsx :: FilePath -> FilePath -> IO ()
+unzipXlsx targetFile workDir = do
+    system $ "rmdir /S /Q \"" ++ workDir ++ "\" 2>nul"  -- 失敗しても続行
+    createDirectoryIfMissing True workDir
+    let zipFile = workDir ++ "\\temp_xlsx.zip"
+    callCommand $ "copy \"" ++ targetFile ++ "\" \"" ++ zipFile ++ "\""
+    callCommand $ "powershell -Command \"Expand-Archive -Path '"
+        ++ zipFile ++ "' -DestinationPath '" ++ workDir ++ "' -Force\""
+    callCommand $ "del \"" ++ zipFile ++ "\""
+
+processSheet :: FilePath -> String -> String -> String -> IO ()
+processSheet workDir inputCol outputCol mode = do
+    let ssPath    = workDir ++ "\\xl\\sharedStrings.xml"
+        sheetPath = workDir ++ "\\xl\\worksheets\\sheet1.xml"
+    ss    <- parseSharedStrings ssPath
+    let inCol  = colNameToIdx inputCol
+        outCol = colNameToIdx outputCol
+    cells <- parseSheet sheetPath inCol
+    let toStr (_, val, "s") = case reads val of
+                                  [(i, "")] -> if i < BV.length ss
+                                               then ss BV.! i
+                                               else ""
+                                  _         -> ""
+        toStr (_, val, _)   = val
+        strings = map toStr cells
+        rowNums = map (\(r, _, _) -> r) cells
+    let n    = length strings
+        half = n `div` 2
+        (firstHalf, secondHalf) = splitAt half strings
+        processCell = case mode of
+            "value" -> processCellValueIO
+            _       -> processCellIO
+    (results1, results2) <- concurrently
+        (mapConcurrently processCell firstHalf)
+        (mapConcurrently processCell secondHalf)
+    let results = results1 ++ results2
+    bs <- fmap BL.fromStrict $ BS.readFile sheetPath
+    let (tree, _) = XTree.parse defaultParseOptions bs :: (XTree.UNode String, Maybe XMLParseError)
+        tree'     = insertResults outCol (zip rowNums results) tree
+    BL.writeFile sheetPath (formatNode tree')
+
+repackXlsx :: FilePath -> FilePath -> IO ()
+repackXlsx targetFile workDir = do
+    let zipFile = takeDirectory targetFile ++ "result.zip"
+    callCommand $ "D:\\7z.exe a \"" ++ zipFile ++ "\" \"" ++ workDir ++ "\\*\""
+    callCommand $ "copy /Y \"" ++ zipFile ++ "\" \"" ++ targetFile ++ "\""
+    system $ "del \"" ++ zipFile ++ "\""
+    return ()
+
+runProcess :: FilePath -> String -> String -> String -> IO ()
+runProcess targetFile inputCol outputCol mode = do
+    let workDir = makeWorkDir targetFile
+    unzipXlsx targetFile workDir
+    processSheet workDir inputCol outputCol mode
+    repackXlsx targetFile workDir
+    removeDirectoryRecursive workDir
+    putStrLn "完了"
+
+main :: IO ()
+main = do
+    n <- getNumProcessors
+    setNumCapabilities n  -- PCのコア数を自動検出    
+    args <- getArgs
+    case args of
+        [file, inCol, outCol, mode] -> runProcess file inCol outCol mode
+        _ -> putStrLn "使い方: MyLib_xml.exe <ファイルパス> <入力列> <出力列> <len|value>"
