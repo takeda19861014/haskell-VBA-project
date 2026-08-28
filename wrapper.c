@@ -3,7 +3,10 @@
 #include <oleauto.h>
 #include <HsFFI.h>
 #include <wchar.h>
+#include <HsFFI.h>
+extern void hs_init_with_rtsopts(int *argc, char **argv[]);
 #include <stdio.h>
+
 
 #pragma comment(lib, "oleaut32")
 #pragma comment(lib, "ole32")
@@ -55,6 +58,7 @@ extern "C" {
         return 1;
     }
 
+
     // DllMain（既存のコードを維持）
     BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvReserved) {
         switch (fdwReason) {
@@ -94,7 +98,7 @@ extern "C" {
         return real_len((const wchar_t*)s, (HsInt32)len, elem1, elem2);
     }
 
-    // 既存のreal_len_wrapper_wstr（wchar_t*版）
+// 既存のreal_len_wrapper_wstr（wchar_t*版）
     __declspec(dllexport) HsInt32 __stdcall real_len_wrapper_wstr(const wchar_t* s, HsInt32 elem1, HsInt32 elem2) {
         if (!ensure_hs_initialized()) {
             OutputDebugStringA("real_len_wrapper_wstr: Haskellランタイム初期化失敗\n");
@@ -115,7 +119,7 @@ extern "C" {
 
         return real_len(s, len, elem1, elem2);
     }
-
+    
     // real_len_advanced_wrapper（パターンマッチング版）
     __declspec(dllexport) HsInt32 __stdcall real_len_advanced_wrapper(const wchar_t* s, HsInt32 len_c, HsInt32 elem1, HsInt32 elem2) {
         if (!ensure_hs_initialized()) {

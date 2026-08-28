@@ -1,4 +1,5 @@
 ﻿{-# LANGUAGE ForeignFunctionInterface #-}
+
 module MyLib where
 
 import Foreign
@@ -345,6 +346,7 @@ myDict = Map.fromList [
  (8218, Right 1),
  (8220, Right 1),
  (8222, Right 1),
+ (8257, Right 1),
  (8266, Right 25),
  (8544, Left "R"),
  (8548, Left "R"),
@@ -1104,7 +1106,7 @@ isArabicDigit x = x >= 48 && x <= 57  -- Unicode range for '0' to '9'
 
 -- Roman numeral checking function
 isRomanNumeral :: Int -> Bool
-isRomanNumeral x = x `elem` [8544, 8548, 8553, 8556, 8557]  
+isRomanNumeral x = x `elem` [8544, 8548, 8553, 8556, 8557, 8558, 8559]
 -- Corresponds to: Ⅰ(8544), Ⅴ(8548), Ⅹ(8553), Ⅼ(8556), Ⅽ(8557)
 
 -- Get Arabic digit value
@@ -1115,13 +1117,16 @@ getArabicValue x
 
 -- Get Roman numeral value
 getRomanValue :: Int -> Int
-getRomanValue x = case x of
-    8544 -> 1   -- Ⅰ
-    8548 -> 5   -- Ⅴ
-    8553 -> 10  -- Ⅹ
-    8556 -> 50  -- Ⅼ
-    8557 -> 100 -- Ⅽ
-    _ -> 0
+getRomanValue x
+    | x == 8544 = 1
+    | x == 8548 = 5
+    | x == 8553 = 10
+    | x == 8556 = 50
+    | x == 8557 = 100
+    | x == 8558 = 500
+    | x == 8559 = 1000
+    | otherwise = 0
+
 
 -- 文字ごとの値変換(位取りを考慮,ローマ数字の分岐処理対応)
 charToValueWithPosition :: V.Vector Int -> Int -> Int
@@ -1191,7 +1196,10 @@ checkRomanPattern (8553:8556:_) = Just (40, 2)
 -- 8. Ⅹ Ⅽ → 90（減算表記）
 checkRomanPattern (8553:8557:_) = Just (90, 2)
 
--- 9-13. 単一ローマ数字
+checkRomanPattern (8557:8558:_) = Just (400, 2)   -- ⅭⅮ
+checkRomanPattern (8557:8559:_) = Just (900, 2)   -- ⅭⅯ
+
+-- 9-13. 単一ローマ数字（既存分のみ）
 checkRomanPattern (8544:_) = Just (1, 1)   -- Ⅰ
 checkRomanPattern (8548:_) = Just (5, 1)   -- Ⅴ
 checkRomanPattern (8553:_) = Just (10, 1)  -- Ⅹ
@@ -1201,8 +1209,12 @@ checkRomanPattern (8557:_) = Just (100, 1) -- Ⅽ
 -- 14. Ɔ  → 0（特殊用途）
 checkRomanPattern (390:_) = Just (0, 1)
 
-checkRomanPattern _ = Nothing
+-- 15. D・M単体（別関数に切り出し）
+checkRomanPattern (x:_)
+    | x == 8558 = Just (500, 1)
+    | x == 8559 = Just (1000, 1)
 
+checkRomanPattern _ = Nothing
 
 isInMyDict :: Int -> Bool
 isInMyDict x = case Map.lookup x myDict of
@@ -1227,17 +1239,18 @@ calculateIndividualRomanValues chars consumed totalValue = case (chars, consumed
     -- 場合3: Ⅰ Ɔ → 500 の特殊表記（2文字パターン）
     (8544:390:_, 2, 500) -> [500, 0]
     
-    -- 2文字の減算記法 - 修正版
+-- 2文字の減算記法 - 修正版
     (first:second:_, 2, _) -> 
         let firstValue = getRomanValue first
             secondValue = getRomanValue second
-        in case (first, second) of
-            (8544, 8556) -> [-1, 50]   -- Ⅰ Ⅼ → 49 = -1 + 50
-            (8544, 8553) -> [-1, 10]   -- Ⅰ Ⅹ → 9 = -1 + 10  
-            (8544, 8548) -> [-1, 5]    -- Ⅰ Ⅴ → 4 = -1 + 5
-            (8553, 8556) -> [-10, 50]  -- Ⅹ Ⅼ → 40 = -10 + 50
-            (8553, 8557) -> [-10, 100] -- Ⅹ Ⅽ → 90 = -10 + 100
-            _ -> [firstValue, secondValue]
+        in if first == 8544 && second == 8556 then [-1, 50]     -- Ⅰ Ⅼ → 49
+           else if first == 8544 && second == 8553 then [-1, 10]  -- Ⅰ Ⅹ → 9
+           else if first == 8544 && second == 8548 then [-1, 5]   -- Ⅰ Ⅴ → 4
+           else if first == 8553 && second == 8556 then [-10, 50] -- Ⅹ Ⅼ → 40
+           else if first == 8553 && second == 8557 then [-10, 100] -- Ⅹ Ⅽ → 90
+           else if first == 8557 && second == 8558 then [-100, 500] -- Ⅽ Ⅾ → 400
+           else if first == 8557 && second == 8559 then [-100, 1000] -- Ⅽ Ⅿ → 900
+           else [firstValue, secondValue]
     
     -- その他の3文字パターン
     (first:second:third:_, 3, _) -> [0, 0, totalValue]
@@ -1289,14 +1302,11 @@ real_value_new_improved cws len_c elem1 elem2 = do
                 valueResult <- analyzeStringForValues str
                 let row = fromIntegral elem1
                     col = fromIntegral elem2
-                
-                -- ★ (0,0) → 全体の合計
                 if row == 0 && col == 0
                 then do
                     let allValues = concatMap (filter (/= 0)) (valueColumns valueResult)
                         totalSum = sum allValues
                     return (fromIntegral totalSum)
-                -- ★ 通常のアクセス：real_len_advancedと同じ行列位置
                 else do
                     let value = getValueAtPosition valueResult row col
                     return (fromIntegral value)
