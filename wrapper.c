@@ -46,12 +46,16 @@ extern "C" {
         if (!g_hs_initialized) {
             EnterCriticalSection(&g_init_cs);
             if (!g_hs_initialized) {
-                int argc = 1;
-                char* argv[] = { "MyLib", NULL };
+                int argc = 3;
+                static char arg0[] = "MyLib";
+                static char arg1[] = "+RTS";
+                static char arg2[] = "-N4";
+                char* argv[] = { arg0, arg1, arg2, NULL };
                 char** args = argv;
-                hs_init(&argc, &args);
+
+                hs_init_with_rtsopts(&argc, &args);
                 g_hs_initialized = 1;
-                OutputDebugStringA("Haskellランタイム初期化完了\n");
+                OutputDebugStringA("Haskellランタイム初期化完了(N4)\n");
             }
             LeaveCriticalSection(&g_init_cs);
         }
